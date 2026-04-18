@@ -1,0 +1,26 @@
+title: "The Typed Graph: How Machine Knowledge Earns Trust"
+author: "Will Ware"
+spine_text: "The Typed Graph: How Machine Knowledge Earns Trust    Will Ware"
+front_image: "orion_and_taurus.png"
+front_image_crop: "scale_and_center"
+title_color: "#000000"
+back_text: |
+  A typed graph is one where the sets of entity types and predicates are fixed,
+  domain and range constraints are declared for each predicate, and every claim
+  is either well-formed or it isn't -- before the question of truth is even raised.
+
+  Unlike an RDF graph, whose open schema makes structural errors invisible, a
+  typed graph rejects category errors on data ingestion, resolves ambiguous
+  references to canonical identifiers, and traces every asserted relationship
+  to its source. Large classes of hallucination need not be corrected after the
+  fact -- they are never admitted at all.
+
+  The extraction bottleneck that held back knowledge representation for fifty
+  years is now broken. Language models can read a paper and cheaply produce
+  structured claims at a scale that was unimaginable a decade ago. The remaining
+  question is whether those claims can be trusted. A typed graph is the answer:
+  not because it guarantees truth, but because it guarantees that what it contains
+  is well-formed, grounded, and inspectable.
+
+  This book is for engineers who want trustworthiness to be architectural,
+  not aspirational.

@@ -1,0 +1,14 @@
+# Build artifacts
+*.pdf
+*.epub
+*.tex
+!index-header.tex
+!index-footer.tex
+*.aux
+*.idx
+*.ind
+*.ilg
+*.log
+*.out
+*.toc
+cover_wrap.jpg
