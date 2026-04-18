@@ -1167,6 +1167,124 @@ is logged, every promotion is logged, every confidence computation is
 reproducible from the provenance records. The infrastructure for verification
 is built in. Using it is a commitment that extends beyond the code.
 
+### Credit, Priority, and Provenance\index{credit (scientific)}\index{scientific priority}
+
+When a machine surfaces a connection -- a drug-disease relationship that no
+single paper states but that the graph implies from combining multiple sources
+-- who gets credit? The authors of the papers that contributed the underlying
+facts? The builders of the graph? The user who ran the query? The question
+matters for scientific priority, intellectual property, and the sociology of
+research. Scientists are rewarded for discovery. If the discovery is made by
+a system, the reward structure gets complicated.
+
+Provenance tracking, which this book has treated as a technical concern
+throughout, turns out to have significant ethical implications. How you record
+where a fact came from determines who can be credited. A relationship with full
+provenance -- source document, passage, extraction method -- makes it possible
+to trace the contribution back to the original authors. A relationship stored
+without provenance makes that impossible. The technical decision about schema
+design is also a decision about how credit will flow. The same is true for
+conflicts: when two sources assert contradictory relationships, provenance lets
+you represent the conflict rather than silently merging. That representation
+matters for how disputes get resolved and how the community understands what's
+known versus what's contested. The builder of the graph is making choices that
+affect the sociology of the domain, whether or not they intend to.
+
+### Who Owns the Graph\index{open science}\index{graph ownership}
+
+Open versus proprietary is not a new tension in science. GenBank\index{GenBank},
+the repository of genetic sequences, was built as a public resource; the
+decision to make it open and freely accessible shaped how molecular biology
+developed. Clinical trial data, by contrast, has often been held proprietary
+by sponsors; the fight for access has been long and only partially won. The
+question of who owns a comprehensive knowledge graph over a significant
+scientific domain will have similar consequences.
+
+If a single entity -- a company, a government, a consortium -- controls the
+graph, that entity controls who can query it, what they can do with the
+results, and how the graph evolves. The incentives may align with the
+scientific commons, or they may not. A company that built a drug-discovery KG
+might restrict access to protect competitive advantage. A government might
+restrict access for national security reasons. An open consortium might make
+the graph freely available but lack the resources to maintain it. The
+historical analogies are instructive: GenBank succeeded because the community
+agreed that sequence data should be a commons; clinical trial data remains
+contested because the incentives are mixed. A knowledge graph over a domain
+like medicine or materials science will face the same tensions. What it would
+mean for a single entity to control it -- the power to shape what gets
+synthesized, what gets surfaced, what gets updated -- is worth thinking about
+before it happens.
+
+### Capability Is Not Bounded by Intent\index{capability vs. intent}\index{architecture of expertise}
+
+Consider what it means to build a system that encodes the architecture of
+expertise for a domain. You built a graph for drug discovery; a user runs a
+traversal that surfaces a drug-pathway combination that could be repurposed for
+something harmful. You built a graph for medical literature; a query connects
+the dots in a way that reveals something about a person's health that they
+didn't intend to share. You built a graph for materials science; the same
+structural similarity query that finds promising battery compounds could find
+promising explosives. None of these are edge cases or failures. They follow
+directly from the system working as designed.
+
+The graph encodes structure; structure supports inference; inference doesn't
+respect the boundaries of what you had in mind. A reasoning system with access
+to rich, typed, provenance-tracked knowledge will expose connections its
+builders didn't anticipate -- because the value of the system is precisely that
+it can traverse the graph more exhaustively than any individual human would.
+That traversal doesn't stop at the edges of your intended use case. Capability
+is not neatly bounded by intent.
+
+That doesn't mean you shouldn't build. It means you should build with your
+eyes open. The inferences the system can expose are a feature when they advance
+science and a risk when they don't. The difference is often context, use case,
+and the choices you make about access, provenance, and what gets logged. Those
+choices deserve to be taken seriously.
+
+### Dual Use at Graph Scale\index{dual use}
+
+The drug interaction that saves lives and the synthesis route that enables harm
+are both pattern-matching problems over structured knowledge. A graph that
+encodes "compound X inhibits enzyme Y" and "reaction A produces compound X"
+can answer "what inhibits Y?" for a clinician looking for treatments and for
+someone looking for precursors. The same query interface serves both. The graph
+doesn't know the difference. Dual use is not a bug; it's inherent to how
+knowledge works. Facts don't come with moral valence. The same fact can support
+healing or harm depending on who uses it and how.
+
+What does responsible construction and deployment look like? There's no clean
+answer, but there are practices that help. Access control\index{access control}:
+who can query the graph, and for what? Some graphs should be broadly available;
+others may need to be restricted to credentialed researchers or vetted use
+cases. Provenance and transparency: when the system surfaces a connection, can
+the user trace it to sources? That traceability supports verification and
+accountability. Logging and monitoring: if the graph is used for something
+harmful, can you detect it? Auditing: who reviews how the system is used? These
+are operational questions, not just technical ones. They don't eliminate dual
+use. They make it harder to misuse the system without leaving a trace, and they
+create channels for accountability when misuse occurs. The right response to
+dual use isn't to not build. It's to build with these questions in mind.
+
+### The Epistemic Responsibility of the Builder\index{epistemic responsibility}
+
+What do you owe to the users of the system you build? At minimum, you owe them
+honesty about what the system is and isn't. It's a synthesis of the literature,
+not a representation of ground truth. It has gaps, biases, and limits. Users
+who don't understand that may over-trust it. You also owe them the
+infrastructure for verification: provenance, so they can trace claims to
+sources; confidence, so they can weight what they find; and documentation, so
+they know what the schema captures and what it doesn't.
+
+Beyond that, the builder's choices about provenance, transparency, access, and
+schema design are ethical choices, not just technical ones. Deciding what to
+extract, how to represent it, who gets to query it, and what gets logged --
+these decisions shape how the system will be used and what consequences it will
+have. That doesn't mean every builder must solve every ethical problem before
+shipping. It means the builder is a stakeholder, with some power to shape
+outcomes. The right response isn't paralysis. It's to take the responsibility
+seriously, to build with the foreseeable consequences in mind, and to create
+the conditions for accountability when things go wrong.
+
 ## Chapter 15: What This Makes Possible
 
 `\chaptermark{What This Makes Possible}`{=latex}
@@ -1206,6 +1324,61 @@ to communicate across research groups. The identity server treats these
 authorities as the interoperability layer they accidentally became. The
 cross-domain reasoning capability is an emergent property of the decision to
 anchor to shared authorities, not a designed feature of any single system.
+
+### Democratization and Its Limits
+
+Building and maintaining a serious knowledge graph still requires significant
+resources. You need a corpus, which may be behind paywalls\index{paywalls}.
+You need compute for extraction, which costs money. You need domain expertise
+to design the schema and validate the output. The result is that the first
+generation of domain-spanning knowledge graphs will likely be built by those
+who can afford to build them -- pharmaceutical companies, large universities,
+government agencies, well-funded startups. The question of who gets access then
+becomes a question of licensing, openness, and governance.
+
+The promise the technology holds out is real nonetheless. A researcher at a
+small institution, or in a developing country, with access to a comprehensive
+KG over their domain would have the same structural view of the literature as
+a researcher at a well-funded lab. The graph doesn't care who queries it. The
+capability to expose connections that citation networks hide, to ground an LLM
+in curated knowledge -- that capability could be democratized. The technology
+enables it; policy and incentive will decide whether it happens.
+
+### Grounding LLM Inference
+
+The pattern that changes what a language model can do: instead of asking a
+model to reason from its training data, give it structured, typed,
+provenance-tracked claims from your graph and ask it to reason from those. The
+difference in reliability is substantial. A model hallucinating over raw text
+and a model reasoning over a curated graph with explicit provenance are doing
+qualitatively different things, even if they look similar from the outside.
+This is the integration that makes a knowledge graph more than a database.
+
+The mechanics are straightforward. A user asks a question. Your system
+retrieves relevant subgraphs -- entities and relationships that match the
+question's scope -- and injects them into the model's context. The model
+reasons over that context and produces an answer. The answer is grounded in the
+retrieved graph, not in the model's training. You can cite the sources. You can
+trace the reasoning path. When the graph is wrong, you fix the graph; you don't
+retrain the model.
+
+### Hypothesis Generation
+
+Graph traversal as a discovery tool: not "what do we know about X" but "what's
+adjacent to X that hasn't been studied," "what entities are structurally similar
+to X in the graph," "what relationships exist between X and Y that no single
+paper asserts but that follow from combining multiple sources." These are
+queries that are impossible over raw text and natural over a well-constructed
+graph.
+
+Consider a concrete example. Drug A treats disease D. Gene G is associated with
+disease D. Drug B modulates gene G. No single paper may state that drug B is
+worth testing for disease D. The inference follows from combining three
+relationships that exist in the graph. A researcher who had read all the
+relevant papers might make that connection; the graph makes it queryable. The
+results are candidate hypotheses -- drug-disease pairs that the graph implies
+but that may not have been studied together. The graph doesn't decide which are
+worth pursuing. It surfaces candidates that a human can filter and prioritize.
 
 ### An Invitation
 
