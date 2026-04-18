@@ -169,11 +169,8 @@ Shallow treatment -- full architecture is in the first book, *The Typed Graph: H
 - **The Serving Layer Is Not the Point** -- Graph capabilities are independent of serving layer; REST, MCP, or custom APIs all work; the graph is the data structure, the server is a delivery mechanism.
 - **Direct Querying** -- Entity lookup, relationship queries, traversal; design primitives that map to domain questions.
 - **Graph Visualization** -- Force-directed visualization reveals structure, clusters, bridges, and outliers better than tabular output.
-- **Grounding LLM Inference** -- Instead of asking the model to remember, give it retrieved graph to reason over; shifts from "hallucination" to "synthesis from sources."
 - **MCP as the Integration Point** -- Model Context Protocol makes the graph a discoverable, queryable, active participant in agentic reasoning.
 - **BFS Queries** -- Breadth-first search query language designed for LLM friendliness; topology and presentation are orthogonal. Refer to third book.
-- **Hypothesis Generation** -- Traverse the graph to surface candidates (drug-disease pairs, structural analogies, gap-based suggestions) for human evaluation.
-- **Returning to the Dream** -- The vision of machines reasoning over explicit knowledge is finally reachable; the representation was the bottleneck.
 
 ### Chapter 14: The Augmented Researcher
 
@@ -184,15 +181,8 @@ Shallow treatment -- full architecture is in the first book, *The Typed Graph: H
 
 ### Chapter 15: Consequences
 
-- **Democratization and Its Limits** -- Building remains resource-intensive, but technology enables democratization if policy and incentives align.
 - **Compressed Discovery Timelines** -- The knowledge synthesis bottleneck becomes quicker; research pace accelerates in drug discovery, rare disease, and materials science.
 - **The Rare Disease Problem** -- Small communities can't synthesize full literature; graphs serve as coordination and knowledge synthesis mechanisms.
-- **Credit, Priority, and Provenance** -- When machines surface connections, credit attribution and scientific priority depend on provenance tracking; technical choices have ethical implications.
-- **Who Owns the Graph** -- Open versus proprietary carries consequences for the scientific commons; the governance question mirrors GenBank and clinical trial data tensions.
-- **Capability Is Not Bounded by Intent** -- Rich, structured, provenance-tracked knowledge enables inferences builders didn't anticipate; capability transcends intended use.
-- **Dual Use at Graph Scale** -- The same facts support both beneficial and harmful applications; responsible practice requires access control, provenance transparency, logging, and auditability.
-- **Bias at Scale** -- Graphs encode and amplify source biases; diverse sourcing and provenance transparency help but don't eliminate the problem.
-- **The Epistemic Responsibility of the Builder** -- Builders owe honesty about limits, infrastructure for verification, and consideration of foreseeable consequences.
 - **Open Problems** -- Very long documents, multi-hop reasoning during extraction, real-time updating, and schema evolution without re-extraction remain challenging.
 - **Where the Field Is Going** -- LLMs will change; the need for this grounding layer is permanent; RAG and structured world models converge on the same architectural insight.
 

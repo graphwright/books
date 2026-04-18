@@ -356,6 +356,24 @@ provenance). None of the three is sufficient alone.
 - **The Builder's Responsibility** -- Honesty about coverage limits,
   infrastructure for verification, and consideration of foreseeable misuse;
   trustworthiness is an ongoing commitment, not a one-time design choice.
+- **Credit, Priority, and Provenance** -- When machines surface connections,
+  credit attribution and scientific priority depend on provenance tracking;
+  technical choices about schema design have ethical implications for how
+  credit flows and disputes are recorded.
+- **Who Owns the Graph** -- Open versus proprietary carries consequences for
+  the scientific commons; mirrors GenBank (open, shaped a field) vs. clinical
+  trial data (contested); governance question worth thinking about before it's
+  decided for you.
+- **Capability Is Not Bounded by Intent** -- A system that encodes the
+  architecture of expertise enables inferences its builders didn't anticipate;
+  structure supports inference; inference doesn't respect intended use case
+  boundaries.
+- **Dual Use at Graph Scale** -- The same facts support both beneficial and
+  harmful applications; responsible practice requires access control,
+  provenance transparency, logging, and auditability.
+- **The Epistemic Responsibility of the Builder** -- Builders owe honesty
+  about what the system is and isn't; provenance and confidence infrastructure
+  for verification; the builder is a stakeholder, not just an implementer.
 
 ### Chapter 15: What This Makes Possible
 
@@ -366,6 +384,16 @@ provenance). None of the three is sufficient alone.
   biomedical literature to compose with a graph built from clinical trial data,
   a drug database, and a genomics resource; the typed schema ensures the
   composition is structurally coherent.
+- **Democratization and Its Limits** -- Building remains resource-intensive, but
+  the structural view the graph provides could be democratized; technology
+  enables it, policy and incentive will decide whether it happens.
+- **Grounding LLM Inference** -- Give the model typed, provenance-tracked claims
+  from the graph rather than asking it to reason from training data; the
+  difference in reliability is qualitative, not just quantitative.
+- **Hypothesis Generation** -- Traverse the graph to surface candidates
+  (drug-disease pairs, structural analogies) that no single paper asserts but
+  that follow from combining multiple sources; the graph narrows the space of
+  possibilities for human evaluation.
 - **The Robot Scientist, Revisited** -- Adam and Eve were limited by the
   extraction bottleneck; that bottleneck is now broken; the typed graph with
   structural provenance is what makes the resulting knowledge trustworthy enough
