@@ -26,7 +26,7 @@ fi
 
 # Parse cover.yaml fields
 _yaml() {
-    uv run python3 -c "
+    python3 -c "
 import sys, yaml
 with open('$YAML') as f:
     d = yaml.safe_load(f)
