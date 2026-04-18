@@ -1,0 +1,70 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            pandoc \
+            texlive-xetex \
+            texlive-fonts-recommended \
+            texlive-fonts-extra \
+            texlive-latex-extra \
+            inkscape \
+            python3-yaml
+
+      - name: Build identity-book
+        run: make -C identity-book
+
+      - name: Build kg-book
+        run: make -C kg-book
+
+      - name: Build bfs-ql-book
+        run: make -C bfs-ql-book
+
+      - name: Create release timestamp
+        id: timestamp
+        run: echo "ts=$(date -u '+%Y%m%dT%H%M%S')" >> "$GITHUB_OUTPUT"
+
+      - name: Package release archive
+        env:
+          TS: ${{ steps.timestamp.outputs.ts }}
+        run: |
+          ARCHIVE="graphwright-books-${TS}.tar.gz"
+          tar -czf "${ARCHIVE}" \
+            identity-book/text.pdf \
+            identity-book/text.epub \
+            kg-book/text.pdf \
+            kg-book/text.epub \
+            bfs-ql-book/bfsql.pdf \
+            bfs-ql-book/bfsql.epub
+          echo "ARCHIVE=${ARCHIVE}" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "release-${{ steps.timestamp.outputs.ts }}"
+          name: "Release ${{ steps.timestamp.outputs.ts }}"
+          body: |
+            Automated release built from commit ${{ github.sha }}.
+
+            This archive contains all three Graphwright series books:
+            - `identity-book/text.pdf` / `text.epub` — *The Typed Graph*
+            - `kg-book/text.pdf` / `text.epub` — *Knowledge Graphs from Unstructured Text*
+            - `bfs-ql-book/bfsql.pdf` / `bfsql.epub` — *BFS-QL*
+          files: ${{ env.ARCHIVE }}
+          fail_on_unmatched_files: true
