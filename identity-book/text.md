@@ -1122,7 +1122,7 @@ This separation -- enforcement at insertion, auditing after the fact -- reflects
 
 The key design insight is that a graph linter should not have hardcoded rules. Its rule set should be derived entirely from the Domain Spec at runtime. Every predicate in the spec has a domain, a range, a provenance requirement, and optionally a functional flag or a negation pair. The linter reads the spec and generates its checks from those declarations.
 
-The checks fall into the same four layers described in Chapter 12:
+The checks fall into the same four layers described in Chapter 11:
 
 - **Vocabulary violations**: predicates in the graph not defined in the schema
 - **Domain/range violations**: edges where subject or object entity type violates the predicate's declared constraints
@@ -1451,44 +1451,53 @@ to use them.
 
 ```python
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, FrozenSet
 from enum import Enum
+from pydantic import BaseModel, Field
 
 
-class EntityStatus(Enum):
+class EntityStatus(str, Enum):
     PROVISIONAL = "provisional"
     CANONICAL = "canonical"
     MERGED = "merged"
 
 
-@dataclass(frozen=True)
-class EntityRecord:
+class EntityRecord(BaseModel, frozen=True):
     """An entity in the identity server."""
-    entity_id: str
-    entity_type: str
-    surface_forms: frozenset[str]
-    status: EntityStatus
-    authority: Optional[str]
-    authority_id: Optional[str]
-    confidence: float
-    evidence_count: int
+    entity_id: str = Field(description="Stable identifier for this entity")
+    entity_type: str = Field(description="Entity type from the domain spec")
+    surface_forms: FrozenSet[str] = Field(
+        description="All known mention strings for this entity"
+    )
+    status: EntityStatus = Field(description="Current lifecycle status")
+    authority: Optional[str] = Field(
+        description="Name of the anchoring authority, if canonical"
+    )
+    authority_id: Optional[str] = Field(
+        description="Canonical ID from the authority, if canonical"
+    )
+    confidence: float = Field(description="Aggregate confidence score")
+    evidence_count: int = Field(
+        description="Number of supporting provenance records"
+    )
 
 
-@dataclass(frozen=True)
-class ResolveResult:
+class ResolveResult(BaseModel, frozen=True):
     """Result of a resolve operation."""
-    entity_id: str
-    status: EntityStatus
-    was_created: bool
+    entity_id: str = Field(description="Canonical or provisional entity ID")
+    status: EntityStatus = Field(description="Status of the returned entity")
+    was_created: bool = Field(
+        description="True if a new provisional entity was created"
+    )
 
 
-@dataclass(frozen=True)
-class MergeResult:
+class MergeResult(BaseModel, frozen=True):
     """Result of a merge operation."""
-    survivor_id: str
-    absorbed_id: str
-    was_already_merged: bool
+    survivor_id: str = Field(description="Entity ID of the surviving record")
+    absorbed_id: str = Field(description="Entity ID of the absorbed record")
+    was_already_merged: bool = Field(
+        description="True if this merge had already been performed"
+    )
 
 
 class IdentityServer(ABC):
@@ -1596,7 +1605,7 @@ class IdentityServer(ABC):
 
 ## Domain Plugin HTTP Contract
 
-The domain service implements four endpoints. The identity server calls these
+The domain service implements five endpoints. The identity server calls these
 endpoints; the domain service fulfills them.
 
 ### `POST /resolve-authority`
@@ -1681,6 +1690,39 @@ Response:
       "fuzzy_threshold": 0.95
     }
   }
+}
+```
+
+### `GET /schema`
+
+No request body. Returns the complete domain spec: the closed set of entity
+types and the full predicate vocabulary with domain, range, and constraint
+declarations. The identity server fetches this at startup and re-fetches it
+when the schema version changes.
+
+Response:
+```json
+{
+  "version": "2.3.0",
+  "entity_types": ["drug", "gene", "disease", "biological_process"],
+  "predicates": [
+    {
+      "name": "treats",
+      "domain": ["drug"],
+      "range": ["disease"],
+      "description": "Drug is used therapeutically to manage the disease.",
+      "is_functional": false,
+      "negation_of": null
+    },
+    {
+      "name": "inhibits",
+      "domain": ["drug", "gene"],
+      "range": ["gene", "biological_process"],
+      "description": "Subject suppresses the activity of the object.",
+      "is_functional": false,
+      "negation_of": "activates"
+    }
+  ]
 }
 ```
 
