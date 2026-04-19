@@ -160,7 +160,7 @@ provenance). None of the three is sufficient alone.
 - **Implementing the Domain Service** -- A worked example in Python using FastAPI
   and Pydantic; the medlit biomedical domain as the reference implementation.
 
-### Chapter 6: The Base Identity Server
+### Chapter 6: The Base Identity Server and Caching
 
 - **Domain-Agnostic Core** -- Deduplication logic, the provisional/canonical/merged
   state machine, the lookup chain, idempotency guarantees, Postgres locking,
@@ -177,25 +177,14 @@ provenance). None of the three is sufficient alone.
   /resolve-authority`, `POST /select-survivor`, `POST /compute-confidence`,
   `GET /synonym-criteria`, `GET /schema`; the domain service can be implemented
   in any language.
+- **Caching** -- The lookup chain makes multiple external API calls per entity;
+  without caching, large-corpus ingestion is slow and expensive. Two layers:
+  an LRU cache in the identity server keyed on `(mention, entity_type)`, and a
+  long-TTL cache in the domain service for authority API responses. `compute-confidence`
+  is not cached (cheap arithmetic, variable input). Identity server, domain
+  service, and Postgres co-located on the same docker-compose network.
 
-### Chapter 7: Caching
-
-- **Why Caching Is Not Optional** -- The lookup chain makes multiple calls per
-  entity during ingestion; authority APIs have rate limits and latency; without
-  caching, large-corpus ingestion is slow and expensive.
-- **LRU Cache in the Identity Server** -- HTTP responses from the domain service
-  cached keyed on `(mention, entity_type)`; high hit rate because the same
-  entities appear repeatedly across papers.
-- **Long-TTL Cache in the Domain Service** -- Authority API responses cached with
-  long or infinite TTL within a run; MeSH terms do not change; this is the most
-  important cache.
-- **What Not to Cache** -- `compute-confidence` takes a variable provenance list
-  and is cheap arithmetic; caching it adds complexity without benefit.
-- **Co-location and Network Topology** -- Identity server, domain service, and
-  Postgres on the same docker-compose network; HTTP hops within the network are
-  fast; cache makes them rare.
-
-### Chapter 8: Entity Lifecycle
+### Chapter 7: Entity Lifecycle
 
 - **Three Statuses** -- Provisional (unresolved), canonical (authority-anchored),
   merged (absorbed into another entity); status rules govern all transitions.
@@ -211,12 +200,19 @@ provenance). None of the three is sufficient alone.
 - **Type Constraints Across the Lifecycle** -- Entity type is assigned at
   creation and immutable; merging is only permitted between entities of the same
   type; type mismatches surface at promotion time, not at query time.
+- **When the Ontology Changes** -- Deprecated predicates are flagged, not
+  silently deleted; tightened domain/range constraints produce migration items
+  distinguished by schema version from original errors; predicate renaming is
+  deprecate-old plus introduce-new with an explicit migration script; the domain
+  spec carries a version field so the linter can separate "was valid when
+  written" from "valid now"; ontology evolution follows the same rule as
+  everything else: make the state visible, not silent.
 
 ---
 
 ## Part III: Integration
 
-### Chapter 9: Identity During Extraction
+### Chapter 8: Identity During Extraction
 
 - **The Ingestion Pipeline's View** -- The pipeline calls the identity server as
   a black box: "here is a mention and an entity type, give me a canonical ID";
@@ -234,7 +230,7 @@ provenance). None of the three is sufficient alone.
 - **Failure and Recovery** -- What happens when the identity server is unavailable
   mid-run; checkpoint design for resumable ingestion.
 
-### Chapter 10: Identity During Querying
+### Chapter 9: Identity During Querying
 
 - **`search_entities` and the Identity Server** -- BFS-QL's `search_entities`
   tool resolves a natural-language name to a canonical ID; this is an identity
@@ -260,7 +256,7 @@ provenance). None of the three is sufficient alone.
 
 ## Part IV: Trustworthiness
 
-### Chapter 11: Provenance as Architecture
+### Chapter 10: Provenance as Architecture
 
 - **Provenance Is Not Optional** -- In high-stakes domains, every claim must be
   traceable to its source; this is not a feature, it is a constraint.
@@ -279,7 +275,7 @@ provenance). None of the three is sufficient alone.
   record, enforced at the schema level; completeness is checkable because the
   schema defines what "complete" means.
 
-### Chapter 12: Making Bad Ideas Inexpressible
+### Chapter 11: Making Bad Ideas Inexpressible
 
 - **Hilbert's Dream** -- David Hilbert hoped for a formal system in which false
   or meaningless statements could not be constructed -- where bad mathematics
@@ -312,7 +308,7 @@ provenance). None of the three is sufficient alone.
   well-typed edge can still be factually wrong. This is not a defect; it is
   the honest boundary of what formal structure can guarantee.
 
-### Chapter 13: The Graph Linter
+### Chapter 12: The Graph Linter
 
 - **Linting as Explicit Epistemics** -- Unix philosophy: do one thing well,
   compose with everything else. The insertion path enforces schema constraints
@@ -339,7 +335,7 @@ provenance). None of the three is sufficient alone.
   is richer for containing the dispute. Contradiction is information, not
   failure.
 
-### Chapter 14: Bias, Limits, and Responsibility
+### Chapter 13: Bias, Limits, and Responsibility
 
 - **What the Graph Cannot Know** -- Coverage gaps create false negatives;
   absence of evidence is not evidence of absence; the identity server cannot
@@ -375,7 +371,7 @@ provenance). None of the three is sufficient alone.
   about what the system is and isn't; provenance and confidence infrastructure
   for verification; the builder is a stakeholder, not just an implementer.
 
-### Chapter 15: What This Makes Possible
+### Chapter 14: What This Makes Possible
 
 - **The Three-Book Arc** -- Book 1 (*Knowledge Graphs from Unstructured Text*)
   gets knowledge in; this book makes it trustworthy; Book 2 (*BFS-QL*) gets it

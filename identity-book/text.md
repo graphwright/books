@@ -726,11 +726,9 @@ To deploy the identity server for a real domain, replace the stub with a real
 domain service pointed at the appropriate authorities. The identity server image
 does not change. The domain service is a separate container.
 
-## Chapter 7: Caching
+### Caching
 
-`\chaptermark{Caching}`{=latex}
-
-### Why Caching Is Not Optional
+#### Why caching is not optional
 
 The lookup chain calls the domain service for every entity mention that does
 not resolve at the exact match stage. In a corpus of ten thousand papers, this
@@ -744,7 +742,7 @@ that caches external authority API responses. Together they ensure that the
 expensive operations -- external API calls -- happen once per unique entity, not
 once per mention.
 
-### LRU Cache in the Identity Server
+#### LRU cache in the identity server
 
 The identity server wraps its HTTP client to the domain service with an LRU
 cache keyed on `(mention, entity_type)`. A call to `/resolve-authority` for
@@ -765,7 +763,7 @@ worker maintains its own cache; there is no shared cache between workers, which
 avoids coordination overhead at the cost of some redundant API calls at the
 start of each worker's run.
 
-### Long-TTL Cache in the Domain Service
+#### Long-TTL cache in the domain service
 
 The domain service caches external authority API responses with a long TTL --
 hours or days, or for the duration of a batch run. Authority records are stable:
@@ -782,7 +780,7 @@ This is the most important cache in the system. External authority API calls are
 the bottleneck for resolution performance. The domain service cache eliminates
 them after the first call.
 
-### Co-location
+#### Co-location
 
 The identity server, domain service, Postgres, and Redis run in the same
 docker-compose\index{docker-compose} network. HTTP calls between them traverse a virtual network
@@ -797,7 +795,7 @@ but the per-call cost of cache misses increases. Co-location is a deployment
 requirement for the performance characteristics described here, not just a
 convenience.
 
-## Chapter 8: Entity Lifecycle
+## Chapter 7: Entity Lifecycle
 
 `\chaptermark{Entity Lifecycle}`{=latex}
 
@@ -861,9 +859,58 @@ server encounters evidence that they should be merged again (because a new paper
 uses a surface form that triggers the same merge condition), the operation
 returns the existing merge result without creating a new merge record.
 
+### When the ontology changes
+
+The domain spec\index{domain spec} is not a one-time artifact. The epistemic commons itself evolves --
+MeSH terms are deprecated, renamed, or restructured; research communities develop
+new consensus on how to categorize things; new predicates become necessary as
+the domain matures. When the ontology changes, the graph must have a principled
+response. That response should follow the same rule that governs everything else
+in a typed graph: make the state visible, not silent.
+
+**Deprecated predicates.** When a predicate is retired from the domain spec,
+edges that used it do not disappear. They are flagged -- either at schema reload
+time or on the next linter pass -- as carrying a deprecated predicate. The flag
+is a structured attribute on the edge, not a deletion. Provenance is never
+retroactively erased. The linter emits `DEPRECATED_PREDICATE` violations for
+these edges, routing them to a review queue. Actual removal is a deliberate,
+auditable operation, not an automatic consequence of the schema change.
+
+**Tightened domain or range constraints.** Suppose the `treats` predicate
+originally allowed `BIOLOGICAL_PROCESS` as an object, and a schema revision
+restricts it to `DISEASE` only. Existing edges with `BIOLOGICAL_PROCESS` objects
+are now constraint violations -- but they were valid when written. The schema
+version\index{schema version} recorded at ingest time (see below) is what allows
+the linter to distinguish "was valid under the schema in force at the time of
+extraction" from "is valid under the current schema." That distinction matters
+for prioritizing remediation: edges that were malformed at extraction time are
+errors; edges that became malformed due to a schema revision are migration items.
+
+**Predicate renaming or splitting.** A predicate that is renamed or split into
+two more specific predicates is handled as deprecate-old plus introduce-new.
+Edges carrying the old predicate are flagged as deprecated. A migration script --
+not the identity server -- moves them to the new predicate with a provenance note
+recording the transformation. The migration script is an explicit, reviewable
+artifact; the transformation is logged in the merge history alongside entity
+merges and promotions.
+
+**Versioned schemas.** The domain service's `GET /schema` response should carry
+a version field\index{schema version} -- a semantic version or a content hash. The identity
+server records which schema version was active when each edge was ingested. This
+makes the migration state auditable: you can query "show me all edges ingested
+under schema version 2.1 that fail validation under schema version 2.3" and get
+a concrete work list.
+
+The philosophical point follows directly from Chapter 12: the graph's response
+to ontology evolution is the same as its response to any other form of conflict
+or structural tension -- surface it, record it, and resolve it deliberately.
+An ontology change that silently invalidates existing edges is a hidden
+violation of the provenance guarantee. An ontology change that makes violations
+visible and auditable is just another form of graph linting.
+
 # Part III: Integration
 
-## Chapter 9: Identity During Extraction
+## Chapter 8: Identity During Extraction
 
 `\chaptermark{Identity During Extraction}`{=latex}
 
@@ -908,7 +955,7 @@ accumulate if entities are in the graph. By allowing provisional entities to
 participate immediately, the identity server enables a pipeline that processes
 papers in any order and resolves entities progressively as evidence accumulates.
 
-## Chapter 10: Identity During Querying
+## Chapter 9: Identity During Querying
 
 `\chaptermark{Identity During Querying}`{=latex}
 
@@ -962,7 +1009,7 @@ the bridges. The identity server made them available; BFS-QL traverses them.
 
 # Part IV: Trustworthiness
 
-## Chapter 11: Provenance as Architecture
+## Chapter 10: Provenance as Architecture
 
 `\chaptermark{Provenance as Architecture}`{=latex}
 
@@ -1016,7 +1063,7 @@ Replication is a signal of robustness, not a guarantee of correctness. The
 identity server records replication faithfully; the interpretation of that
 replication is a human judgment informed by the provenance records.
 
-## Chapter 12: Making Bad Ideas Inexpressible
+## Chapter 11: Making Bad Ideas Inexpressible
 
 `\chaptermark{Making Bad Ideas Inexpressible}`{=latex}
 
@@ -1059,7 +1106,7 @@ We must be honest about the boundary: the typed graph enforces **structural well
 
 This is not a defect; it is a feature. It separates the **structural integrity** of the knowledge base from the **truth value** of the claims it contains. We can guarantee the former; for the latter, we provide the provenance so a human (or a more sophisticated agent) can decide.
 
-## Chapter 13: The Graph Linter
+## Chapter 12: The Graph Linter
 
 `\chaptermark{The Graph Linter}`{=latex}
 
@@ -1113,7 +1160,7 @@ The graph is richer for containing the dispute rather than suppressing it. In a 
 
 None of this requires the graph linter to exist before the graph is useful. The typed schema and identity server provide meaningful guarantees at insertion time without any separate linter. But as a corpus grows and multiple ingestion runs accumulate, the value of an independent audit pass increases. A linter built along these lines -- schema-driven, structured output, conflict records as data -- would be a natural next tool to build once the core pipeline is running.
 
-## Chapter 14: Bias, Limits, and Responsibility
+## Chapter 13: Bias, Limits, and Responsibility
 
 `\chaptermark{Bias and Responsibility}`{=latex}
 
@@ -1285,7 +1332,7 @@ outcomes. The right response isn't paralysis. It's to take the responsibility
 seriously, to build with the foreseeable consequences in mind, and to create
 the conditions for accountability when things go wrong.
 
-## Chapter 15: What This Makes Possible
+## Chapter 14: What This Makes Possible
 
 `\chaptermark{What This Makes Possible}`{=latex}
 
