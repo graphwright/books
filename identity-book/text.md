@@ -1427,7 +1427,7 @@ results are candidate hypotheses -- drug-disease pairs that the graph implies
 but that may not have been studied together. The graph doesn't decide which are
 worth pursuing. It surfaces candidates that a human can filter and prioritize.
 
-### An Invitation
+### What Has Changed
 
 The extraction bottleneck that held back knowledge representation for fifty
 years is now broken. The epistemic commons -- the shared identifier
@@ -1437,13 +1437,10 @@ between them: the service that takes extracted mentions, anchors them to shared
 authorities, aggregates their evidence, and makes the resulting graph
 trustworthy.
 
-This is not a small thing. It means that the vision of machine reasoning over
-explicit, traceable, cross-domain knowledge -- a vision that animated researchers
-from McCarthy to Lenat to Berners-Lee -- is now achievable with tools that exist
-today, at a cost that is no longer prohibitive, for domains that matter.
-
-The infrastructure is built. The epistemic commons is there. The invitation is
-to use them.
+The vision of machine reasoning over explicit, traceable, cross-domain
+knowledge -- a vision that animated researchers from McCarthy to Lenat to
+Berners-Lee -- is now achievable with tools that exist today, at a cost that is
+no longer prohibitive, for domains that matter.
 
 # Appendix A: Identity Server Specification
 
