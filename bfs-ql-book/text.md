@@ -2787,3 +2787,368 @@ which the transformer architecture strongly suggests they will -- then
 selective, bounded traversal from known seeds will remain the right model.
 The interface built around that model will remain correct.
 
+# Appendix A: BFS-QL Protocol Reference
+
+`\markboth{Appendix A: BFS-QL Protocol Reference}{Appendix A: BFS-QL Protocol Reference}`{=latex}
+
+BFS-QL\index{BFS-QL!protocol reference} is a graph query protocol for
+language model (LLM) consumption. It exposes a knowledge graph through
+six MCP\index{MCP} tools with a flat query format. The LLM traverses
+the graph by calling tools with natural-language seeds and structured
+filters, receiving subgraphs shaped for context-window efficiency.
+
+### The six tools\index{BFS-QL!six tools}
+
+| Tool | Purpose |
+|------|---------|
+| `describe_schema()` | Orient: learn what the graph contains |
+| `search_entities(query, ...)` | Resolve: map a name to canonical IDs |
+| `bfs_query(seeds, max_hops, ...)` | Traverse: expand a neighborhood |
+| `describe_entity(id)` | Expand: full metadata for one stub |
+| `describe_entities(ids)` | Expand (batch): full metadata for multiple stubs |
+| `intersect_subgraphs(seeds, k, ...)` | Intersect: nodes reachable from every seed |
+
+### `describe_schema()`\index{describe\_schema}
+
+**Arguments:** none
+
+**Returns:**
+
+```json
+{
+  "graph_description": "...",
+  "comprehensive": true,
+  "entity_types": ["Disease", "Drug", "Gene"],
+  "predicates": ["TREATS", "INHIBITS", "ENCODES"],
+  "next_steps": "...",
+  "tool_usage_notes": "..."
+}
+```
+
+**Fields:**
+
+| Field | Description |
+|-------|-------------|
+| `graph_description` | Human-readable summary of the graph domain and data source. |
+| `comprehensive` | `true` if lists are complete and exhaustive; `false` for large or open-world graphs where they are samples only. |
+| `entity_types` | Valid type names for `bfs_query` `node_types`. May be empty. |
+| `predicates` | Valid predicate names for `bfs_query` `predicates`. May be empty. |
+| `next_steps` | Backend-authored workflow instructions. Follow these in preference to any generic default. |
+| `tool_usage_notes` | Reference guide for all BFS-QL tools: parameter meanings, filtering rules, and critical usage patterns. |
+
+When `comprehensive` is `false`, use `schema_summary` from an initial
+`bfs_query` result to discover valid type and predicate values for the
+local neighborhood.
+
+### `search_entities(query, node_types=None)`\index{search\_entities}
+
+Resolves a natural-language name or alias to canonical entity IDs.
+Always call before `bfs_query` when you do not already have a
+canonical ID.
+
+**Arguments:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `query` | Yes | Name, alias, or partial name to look up. |
+| `node_types` | No | Restrict results to these entity types. Use to exclude high-volume types (e.g., papers) when resolving concept names. |
+
+**Returns:** array of `EntityStub`\index{EntityStub}
+
+```json
+[
+  {
+    "id": "MeSH:D003480",
+    "entity_type": "Disease",
+    "name": "Cushing Syndrome",
+    "score": 0.94
+  },
+  {
+    "id": "MeSH:D047748",
+    "entity_type": "Disease",
+    "name": "Cushing Disease",
+    "score": 0.91
+  }
+]
+```
+
+`name` is the entity's display name. `score` is the vector
+similarity score (0--1, higher is better) when the backend uses
+embedding-based search; `null` when full-text search is used instead.
+Inspect results before choosing a seed -- common names are often
+ambiguous. Use `entity_type` to distinguish concept entities from
+papers or authors that share the same name.
+
+### `bfs_query(seeds, max_hops, ...)`\index{bfs\_query}
+
+Performs a breadth-first search from one or more seed entities.
+Returns the union of their neighborhoods as a `BfsResult`. Filters
+control the *detail level* of items in the result, not which items
+are included -- non-matching nodes and edges always appear as
+lightweight stubs.
+
+**Arguments:**
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `seeds` | Yes | -- | One or more canonical entity IDs. All seeds expand simultaneously; the result is the union of their neighborhoods. |
+| `max_hops` | Yes | -- | Maximum graph distance from any seed. Values 1--3 are typical. |
+| `node_types` | No | all | Matching nodes receive full metadata; others become stubs. |
+| `predicates` | No | all | Matching edges receive full metadata; others become bare triples. |
+| `topology_only` | No | `false` | When `true`, every node is a bare `{id, entity_type}` and every edge a bare triple. Overrides `node_types` and `predicates`. |
+| `exclude_node_types` | No | none | Remove these types and all edges touching them entirely. Topology is no longer guaranteed complete. Use for high-volume types that add no conceptual value. |
+| `min_mentions` | No | `1` | Remove nodes with `total_mentions` below this threshold (and touching edges). Nodes without a `total_mentions` field are always included. Filters the result, not the traversal. |
+| `limit` | No | none | Cap the number of nodes returned. Counts always reflect the full traversal. |
+| `offset` | No | `0` | Skip the first N nodes. Use with `limit` to page through large results. |
+
+### `describe_entity(id)`\index{describe\_entity}
+
+Retrieves full metadata for a single entity by canonical ID. Use
+when `bfs_query` returns a stub and you want the full record for
+that node.
+
+**Arguments:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | Yes | Canonical entity ID. |
+
+**Returns:** full node metadata as a flat dict -- the `id`,
+`entity_type`, and all metadata fields merged at the top level.
+Same keys as the `metadata` dict inside a full `Node`, but
+without nesting.
+
+### `describe_entities(ids)`\index{describe\_entities}
+
+Retrieves full metadata for multiple entities in a single call. Use
+instead of sequential `describe_entity` calls when expanding several
+stubs at once.
+
+**Arguments:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `ids` | Yes | List of canonical entity IDs. |
+
+**Returns:** list of full node metadata dicts, same shape as full
+nodes in `bfs_query` results. IDs that do not exist in the graph
+are silently omitted from the output.
+
+### `intersect_subgraphs(seeds, k, ...)`\index{intersect\_subgraphs}
+
+Returns only nodes within `k` undirected hops of *every* seed
+simultaneously -- the intersection of their neighborhoods rather
+than the union. Use when a multi-seed `bfs_query` returns too many
+nodes for the LLM to intersect manually.
+
+**Arguments:**
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `seeds` | Yes | -- | Two or more canonical entity IDs. |
+| `k` | Yes | -- | Hop radius (1--5). Every result node must be reachable from all seeds within this distance, treating edges as undirected. |
+| `node_types` | No | all | Matching nodes receive full metadata; others become stubs. |
+| `exclude_node_types` | No | none | Remove these types and all edges touching them. |
+| `predicates` | No | all | Matching edges receive full metadata; others become bare triples. |
+| `min_mentions` | No | `1` | Remove nodes with `total_mentions` below this threshold. |
+| `topology_only` | No | `false` | When `true`, return IDs and types only. |
+
+Returns an `IntersectionResult`:\index{IntersectionResult}
+
+```json
+{
+  "seeds":      ["MeSH:D003480", "MeSH:D049970"],
+  "k":          2,
+  "node_count": 12,
+  "edge_count": 15,
+  "nodes":      [...],
+  "edges":      [...],
+  "schema_summary": {
+    "entity_types_found": ["Drug", "Gene"],
+    "predicates_found":   ["TREATS", "INHIBITS"]
+  }
+}
+```
+
+Note: `intersect_subgraphs` does not support `limit`/`offset`
+pagination.
+
+### Response format\index{BfsResult}
+
+`bfs_query` returns a `BfsResult`:
+
+```json
+{
+  "seeds":      ["MeSH:D003480"],
+  "max_hops":   2,
+  "node_count": 84,
+  "edge_count": 99,
+  "nodes":      [...],
+  "edges":      [...],
+  "schema_summary": {
+    "entity_types_found": ["Disease", "Drug", "Gene"],
+    "predicates_found":   ["TREATS", "INHIBITS"]
+  }
+}
+```
+
+`node_count` and `edge_count` reflect the full traversal regardless
+of `limit`/`offset`. `schema_summary` reflects the full traversal
+regardless of filters -- it always contains the actual types and
+predicates present in the subgraph.
+
+**Full node** (entity type matches `node_types`, or no filter):
+
+```json
+{
+  "id":          "PUB:PMC2386281",
+  "entity_type": "Publication",
+  "metadata": {
+    "name":   "The Diagnosis of Cushing's Syndrome",
+    "source": "pubmed",
+    "canonical_url": "https://pubmed.ncbi.nlm.nih.gov/18493314/",
+    "confidence": 0.99,
+    "total_mentions": 12
+  }
+}
+```
+
+Metadata keys vary by entity type and backend. Common keys across
+backends: `name`, `source`, `canonical_url`, `confidence`,
+`usage_count`, `total_mentions`, `synonyms`.
+
+**Stub node** (entity type does not match `node_types`):
+
+```json
+{"id": "PERSON:67890", "entity_type": "Person"}
+```
+
+**Full edge** (predicate matches `predicates`, or no filter):
+
+```json
+{
+  "subject":   "DRUG:rxnorm:41493",
+  "predicate": "TREATS",
+  "object":    "MeSH:D003480",
+  "metadata": {
+    "confidence":       0.91,
+    "source_documents": ["PMC2386281", "PMC3367558"]
+  }
+}
+```
+
+Edge metadata always includes `confidence` and `source_documents`
+(a list of document IDs supporting the relationship) when available.
+Full provenance text is stored in the backend but stripped from
+MCP responses to manage context size; use `describe_entity(id)`
+on the source document node to retrieve it.
+
+**Stub edge** (predicate does not match `predicates`):
+
+```json
+{
+  "subject":   "DRUG:rxnorm:41493",
+  "predicate": "INTERACTS_WITH",
+  "object":    "DRUG:rxnorm:88014"
+}
+```
+
+### Session workflow\index{session workflow}
+
+The recommended sequence for any BFS-QL session:
+
+```text
+1. describe_schema()
+   → learn entity types, predicates, graph description
+   → follow next_steps instructions
+
+2. search_entities(name, node_types=[...])
+   → resolve name to one or more canonical IDs
+   → use node_types to suppress high-volume types
+
+3. bfs_query(seeds, max_hops=1, topology_only=True)
+   → survey structure cheaply
+   → read schema_summary for valid filter values
+
+4. describe_entities([id, id, ...])
+   → batch-expand stubs identified as significant
+   → one call regardless of how many IDs
+
+5. bfs_query(seeds, max_hops=1,
+             node_types=[...], predicates=[...])
+   → targeted re-query using filters from schema_summary
+```
+
+Steps 1 and 2 may be skipped when the server injects schema into
+tool descriptions at startup. Steps 3--5 are iterative: each
+traversal may reveal stubs that motivate further expansion or
+re-query.
+
+For large literature-derived graphs where a topology survey exceeds
+the context budget, replace step 3 with a direct concept query:
+
+```python
+bfs_query(
+    seeds=[seed_id],
+    max_hops=1,
+    exclude_node_types=["paper", "author"],
+    min_mentions=2,
+)
+```
+
+Use `intersect_subgraphs` in place of `bfs_query` when the question
+is "what do all of these entities share?" and the result would be
+too large for the LLM to intersect manually.
+
+### Design properties\index{BFS-QL!design properties}
+
+**Topology is always complete.**\index{topology!completeness} `node_types`
+and `predicates` filters control detail level, not presence.
+A stub node is not a missing node. `exclude_node_types` is the only
+filter that removes items -- use it deliberately.
+
+**Stubs are navigational handles.**\index{stub nodes} A stub in a
+`bfs_query` result carries a canonical ID. Call `describe_entity(id)`
+or `describe_entities(ids)` for full metadata. Seed a new `bfs_query`
+at a stub to expand its neighborhood.
+
+**`schema_summary` closes the vocabulary loop.**\index{schema\_summary}
+For open-world backends where `describe_schema` returns
+`comprehensive: false`, `schema_summary` provides the valid
+`node_types` and `predicates` values for the actual neighborhood.
+Read it after a topology survey before issuing filtered follow-up
+queries.
+
+**Multi-seed queries express relational questions.**
+`bfs_query` with multiple seeds returns the *union* of neighborhoods.
+`intersect_subgraphs` with multiple seeds returns the *intersection*.
+Use `bfs_query` for "what connects to any of these?" and
+`intersect_subgraphs` for "what do all of these share?"
+
+### Implementation notes\index{BFS-QL!implementation notes}
+
+**Caching.** Cache at the `GraphDbInterface` primitive level --
+`edges_from`, `edges_to`, `get_node`, `metadata_for_node` -- keyed
+on `(backend_id, method, args)`. All traversal intelligence in the
+server layer benefits automatically. Cache `entity_types()` and
+`predicates()` results for the lifetime of a session.
+
+**Schema injection.**\index{describe\_schema!injection mode} At
+startup, if the schema has fewer than ~20 entity types and ~30
+predicates, inject valid values into the `bfs_query` tool description.
+FastMCP supports dynamic tool descriptions. Above the threshold,
+suppress injection and rely on `describe_schema()`.
+
+**Async concurrency.**\index{GraphDbInterface!async design} All
+`GraphDbInterface` methods are async. During BFS expansion, call
+`edges_from`/`edges_to` and `get_node`/`metadata_for_node`
+concurrently via `asyncio` to minimize latency on I/O-bound backends.
+
+**Context-window budget.** Production deployments against
+well-connected graphs should accept an optional `max_tokens` hint
+and truncate or stub additional items when the estimated response
+size approaches the budget. Approximate response sizes for a 2-hop
+traversal over a moderately connected graph: ~110K characters with
+full metadata, ~57K with provenance stripped, ~14K with
+`topology_only=true`.
+
