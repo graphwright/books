@@ -7,10 +7,11 @@ front_image_crop: "custom"
 front_image_crop_x_source: 155
 title_color: "#ffffff"
 spine_width_inches: 0.5
-back_text: |
+back_text: >
   Large language models can reason fluently over text. They struggle with
   structured knowledge -- not because they lack intelligence, but because they
   lack a protocol.
+
 
   BFS-QL is that protocol: a five-tool interface that lets any LLM traverse a
   knowledge graph through breadth-first search, resolve entity identities, and
@@ -18,11 +19,13 @@ back_text: |
   transport-agnostic, backend-agnostic, and fits naturally into the MCP tool-use
   pattern that LLMs already know how to navigate.
 
+
   This book covers the protocol from first principles: why breadth-first search
   is the right abstraction for LLM-scale graph traversal, how the five tools
   compose into a complete query capability, what a compliant backend must
   implement, and how to deploy the system against a real knowledge graph. The
   running example is a medical literature graph built from PubMed abstracts on
   Cushing disease.
+
 
   If you have a knowledge graph and an LLM, BFS-QL is the bridge between them.

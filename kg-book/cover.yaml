@@ -5,11 +5,12 @@ front_image: "Cover6x9.jpg"
 front_image_crop: "scale_and_center"
 title_color: "#000000"
 spine_width_inches: 0.5
-back_text: |
+back_text: >
   Large language models are fluent, confident, and wrong in ways that are hard
   to anticipate. The fix is not better prompting -- it is grounding: giving the
   model a structured, inspectable, provenance-tracked representation of what is
   actually known in your domain. That is a knowledge graph.
+
 
   This book covers the full arc: why knowledge graphs are necessary for reliable
   machine reasoning, how fifty years of attempts to build them stalled at the
@@ -17,5 +18,6 @@ back_text: |
   then walks through the engineering -- schema design, LLM-based extraction,
   identity resolution, provenance tracking, and graph serving -- with a working
   implementation in medical literature as the concrete example throughout.
+
 
   If you have a corpus and a domain, you have what you need to start.
