@@ -5,7 +5,7 @@ front_image: "Cover6x9.jpg"
 front_image_crop: "scale_and_center"
 title_color: "#000000"
 spine_width_inches: 0.5
-back_text: |
+back_text: >
   Large language models are fluent, confident, and wrong in ways that are hard
   to anticipate. The fix is not better prompting -- it is grounding: giving the
   model a structured, inspectable, provenance-tracked representation of what is

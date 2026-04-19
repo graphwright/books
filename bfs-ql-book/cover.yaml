@@ -7,7 +7,7 @@ front_image_crop: "custom"
 front_image_crop_x_source: 155
 title_color: "#ffffff"
 spine_width_inches: 0.5
-back_text: |
+back_text: >
   Large language models can reason fluently over text. They struggle with
   structured knowledge -- not because they lack intelligence, but because they
   lack a protocol.
