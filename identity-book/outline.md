@@ -61,6 +61,11 @@ provenance). None of the three is sufficient alone.
 
 ## Part I: The Typed Graph
 
+*The Sherlock Holmes corpus is the running example throughout this book.
+It is introduced in Chapter 2 and carried forward continuously -- not
+re-introduced at each part. A reader arriving at Part III already knows
+the Holmes schema; Parts III and IV show how the services handle it.*
+
 ### Chapter 1: What a Typed Graph Is
 
 - **Beyond the Triple** -- RDF stores (subject, predicate, object) triples with
@@ -313,7 +318,10 @@ provenance). None of the three is sufficient alone.
 - **`GET /schema`** -- Serve the full domain spec as JSON.
   *Why this belongs here:* the schema is part of the domain service's contract
   with the base server and with the graph linter; centralizing it here means
-  one source of truth.
+  one source of truth. *Why a GET and not pushed at startup:* the base server
+  pulls the schema when it starts, and can re-pull if it detects a version
+  change; push would require the domain service to know the base server's
+  address, inverting the dependency.
 
 ### Chapter 12: Validation and the Lifecycle
 
@@ -334,11 +342,37 @@ provenance). None of the three is sufficient alone.
   predicate become uninterpretable; deprecation keeps the audit trail intact
   while signaling that new edges should not use the old predicate.
 
+### Chapter 13: The Graph Linter
+
+- **Two Enforcement Points** -- The insertion path enforces constraints at write
+  time; the linter audits the graph independently, after the fact; Unix
+  philosophy: do one thing well, compose with everything else; both roles are
+  worth having.
+  *Why a separate linter rather than insertion-time checking alone:* insertion
+  checks protect against new bad data; the linter can audit data that predates
+  stricter constraints, catches cross-edge consistency issues that are invisible
+  at single-write time, and acts as a CI gate on ingestion batches.
+- **What the Linter Checks** -- Predicate vocabulary violations, domain/range
+  violations, missing provenance, unresolvable canonical IDs, unacknowledged
+  contradictions; each check derived from the domain spec at runtime, not
+  hardcoded; adding a predicate to the spec automatically extends lint coverage.
+- **Violation Structure** -- Each violation is a typed, structured record:
+  violation type, severity (ERROR / WARNING / INFO), affected edge or entity,
+  human-readable message, suggested remediation; output is JSONL for piping
+  into dashboards or CI.
+- **The Linter in CI** -- An ingestion batch linted before it lands; violations
+  above a severity threshold fail the batch; the linter is a compiler pass
+  for the graph.
+- **Conflict Records as First-Class Data** -- When the linter finds a
+  contradiction, it does not reject the edge; it emits a conflict record;
+  the graph is richer for containing the dispute; contradiction is information,
+  not failure.
+
 ---
 
 ## Part V: Trustworthiness
 
-### Chapter 13: Provenance as Architecture
+### Chapter 14: Provenance as Architecture
 
 - **Provenance Is Not Optional** -- In high-stakes domains, every claim must be
   traceable to its source; this is a structural requirement, not a feature.
@@ -356,7 +390,7 @@ provenance). None of the three is sufficient alone.
   provenance record; the schema defines what "complete" means, so incompleteness
   is detectable.
 
-### Chapter 14: Making Bad Ideas Inexpressible
+### Chapter 15: Making Bad Ideas Inexpressible
 
 - **Hilbert's Dream** -- Hilbert wanted a formal system where false or
   meaningless statements could not be constructed. Gödel showed this is
@@ -374,27 +408,9 @@ provenance). None of the three is sufficient alone.
   can still be wrong; this is not a defect, it is the honest boundary of what
   formal structure can guarantee.
 
-### Chapter 15: The Graph Linter
+---
 
-- **Two Enforcement Points** -- The insertion path enforces constraints at write
-  time; the linter audits the graph independently, after the fact; Unix
-  philosophy: do one thing well, compose with everything else; both roles are
-  worth having.
-- **What the Linter Checks** -- Predicate vocabulary violations, domain/range
-  violations, missing provenance, unresolvable canonical IDs, unacknowledged
-  contradictions; each check derived from the domain spec at runtime, not
-  hardcoded; adding a predicate to the spec automatically extends lint coverage.
-- **Violation Structure** -- Each violation is a typed, structured record:
-  violation type, severity (ERROR / WARNING / INFO), affected edge or entity,
-  human-readable message, suggested remediation; output is JSONL for piping
-  into dashboards or CI.
-- **The Linter in CI** -- An ingestion batch linted before it lands; violations
-  above a severity threshold fail the batch; the linter is a compiler pass
-  for the graph.
-- **Conflict Records as First-Class Data** -- When the linter finds a
-  contradiction, it does not reject the edge; it emits a conflict record;
-  the graph is richer for containing the dispute; contradiction is information,
-  not failure.
+## Closing
 
 ### Chapter 16: Bias, Limits, and Responsibility
 
