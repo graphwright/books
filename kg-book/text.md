@@ -12,107 +12,168 @@ description: "A practitioner's guide to building knowledge graphs from unstructu
 
 *This foreword appears in all three volumes of the Graphwright series.*
 
-We are now in an age of machine reasoning, and some of this reasoning is done
-in high-stakes domains: medicine, law, engineering, spaceflight. Lives and
-livelihoods can be affected by incorrect conclusions or decisions. The cost of
-error is real and significant. LLMs are here, they are staying, and there is no
-turning back the clock.
+Machine reasoning is being deployed in high-stakes domains: medicine, law,
+engineering, buildings and bridges. When mistakes are made in these domains,
+lives and livelihoods are threatened. Large language models (LLMs) are here,
+they are staying, and there is no turning back the clock.
 
-As we all know, LLMs have weaknesses. Their mastery of language syntax is
-astonishing, but they don't understand "this refers to that," or "these two
-things are the same." They have no persistent notion of identity. They do not
-inhabit a world of things connected by relationships. They do not track logical
-consequence from one step to the next.
+In those domains, the cost of a hallucination is a misdiagnosis or a collapsed
+bridge. You cannot accept "good enough" results. You need to be able to explain
+the system's reasoning in terms that a domain expert can verify and dispute. A
+user must be able to ask "why that answer?" and get back something trustworthy.
 
-They cannot reason across multiple causal steps because they cannot reliably
-reason across a single causal step. They do not know what things *are* or how
-they *behave*, only how they are *talked about*.
+Typed graphs with provenance make that possible.
 
-And so we build RAG (retrieval-augmented generation) systems, hoping to improve
-the situation. We improve the LLM's focus on material that is more relevant,
-more similar, better connected to sources of information, and it helps.
+The key shift is from strings to things. We need to make statements about real
+things in the world -- not just look for string similarity. We need identity
+(recognizing that two mentions refer to the same real-world entity), causality
+(tracking cause and effect across multiple steps), and consequential reasoning
+(following what must be true given what we know).
 
-But we are still dealing with strings, not things.
+### RAG vs. Graph-RAG
 
-We still cannot say "this refers to that," or "these two mentions refer to the
-same entity." We still cannot follow a chain of causality or enforce a sequence
-of logical steps. We retrieve passages, but we do not operate on meaning.
+RAG -- retrieval-augmented generation\index{retrieval-augmented generation} --
+works by embedding text passages as vectors and retrieving them by cosine
+similarity. This is useful for quick lookups that you intend to verify manually
+afterward: closer to a Google search than to a reasoning engine.
 
-If RAG doesn't close the gap, what would?
+What RAG cannot give you is identity. It cannot tell you that this thing *is*
+that thing -- that "tumor" and "neoplasm" refer to the same biological entity,
+or that the drug mentioned in one paper is the same compound studied in another.
+It cannot give you cause and effect: that this compound *caused* that reaction,
+or that this gene variant *predicts* that outcome.
 
-- **Identity -- what are we talking about?**
-  - Canonical IDs -- identifiers anchored in curated human knowledge (think Wikipedia)
-  - Authoritative ontologies -- shared bodies of reference (think dictionaries, taxonomies)
-  - Deduplication across sources -- recognizing that the same thing may be named
-    in different ways ("tumor" vs "neoplasm")
-  - A fixed set of entity types
+Graph-RAG\index{Graph RAG} is not just better RAG. It is a different epistemic
+commitment. The LLM serves as the extraction and natural-language interface
+layer; the graph is the reasoning substrate. Those two roles require different
+tools, and conflating them is where most systems go wrong.
 
-- **Type -- which relationships are meaningful?**
-  - A fixed set of predicates
-  - Domain and range for each predicate -- constraints on which kinds of things
-    can be related, so we do not assert things like "aspirin inhibits New York"
-  - Structural validity -- a claim is valid if it is well-formed with respect to
-    the graph's type system, independent of whether it is true or false
+### RDF Gets Many Things Right
 
-- **Provenance -- where did this claim come from?**
-  - Source traceability
-  - Evidence aggregation
-  - Confidence grounded in origin
+The Resource Description Framework (RDF)\index{RDF} -- the W3C standard for
+linked data -- got the foundational atoms right. It is worth saying clearly
+what to keep from it before explaining what to add.
 
-A system cannot reason reliably about the world unless it represents that world
-with stable identities, constrained relationships, and explicit evidence.
+The triple as the atomic unit of knowledge is a brilliant idea, and we keep it.
+A triple is a subject-predicate-object statement: the smallest unit of
+structured knowledge. URIs as identifiers are equally brilliant: a stable,
+globally unique reference to a thing, independent of how that thing is described
+in any particular document. SPARQL as a query language is powerful and worth
+emulating in spirit. OWL2 reasoning points in the right direction.
 
-Machine reasoning requires a data model, not just a model.
+What RDF left uncontrolled is the chemistry. There are no entity types, so a
+node carries little context about what kind of thing it represents beyond its
+OWL2 properties. Predicates are unrestricted: anyone can assert anything about
+anything. The result is that there is no mechanism for detecting category
+errors. Garbage in, garbage out -- and there is no gate on the garbage.
 
-### The Typed Graph
+### Typed Graphs
 
-When we build a knowledge graph where we
+A *typed graph*\index{typed graph} adds the missing controls:
 
-- fix the set of entity types and the set of predicates
-- establish domain and range constraints for each predicate
-- require that entities be assigned canonical IDs whenever possible
-- preserve provenance information for all relationships
+- A fixed set of entity types -- like an enumeration -- so every node is
+  classified, and that classification means something.
+- A fixed set of predicates -- so the vocabulary of relationships is bounded
+  and agreed upon.
+- Domain and range constraints for each predicate -- a predicate's domain
+  is the set of entity types allowed as its subject; its range is the set
+  allowed as its object.
 
-we are no longer dealing with strings, but with a structured representation of
-the world. This is what we call a *typed graph*\index{typed graph}.
+This makes category errors detectable before they enter the graph. Consider
+the assertion "aspirin treats BRCA1." The predicate `treats` has domain
+`[Drug]` and range `[Disease]`. Aspirin is a Drug -- that is fine. But BRCA1
+is a Gene, not a Disease. The assertion is rejected as a type violation, not
+stored as a low-confidence claim.
 
-A typed graph does not guarantee that its conclusions are true. It guarantees
-something more fundamental: that its claims are well-formed, grounded in
-identifiable entities, and traceable to their sources.
+Most entities in the typed graph carry canonical IDs drawn from authoritative
+ontologies. Those IDs are what make seamless multi-hop reasoning possible:
+the same entity referenced in two different papers resolves to the same node,
+and a traversal can follow edges across sources without ambiguity.
 
-Large classes of nonsense and hallucination are not corrected -- they are never
-admitted into the system at all. Category errors are rejected. Ambiguous
-references are resolved or made explicit. Unsupported claims are visible as such.
+### Canonical IDs and Authoritative Ontologies
 
-The result is a system whose outputs may still be wrong, but are always
-inspectable, reproducible, and subject to correction.
+Many domains have official ontologies that are known, respected, and carefully
+curated over years, decades, or centuries. Medicine alone has several: for
+diseases, genes, drugs, organisms, anatomical structures, and more. These
+authoritative ontologies assign stable identifiers to real-world things and
+connect those identifiers to the knowledge that humanity has assembled.
 
-That is the minimum standard for reasoning in high-stakes domains.
+When a knowledge graph anchors its entities to these ontologies, it inherits
+that accumulated knowledge and gains the ability to reason across sources.
+Two papers that both mention "metformin" using its canonical drug ID can be
+joined at the graph level without any string matching. A traversal that starts
+from a disease can follow edges through genes, drugs, and clinical trials
+without asking whether the names are spelled the same way.
 
+The practical problems this raises -- resolving synonyms, deduplicating
+mentions, extracting entity references from unstructured text, and maintaining
+provenance as the graph grows -- are the subject of these three books.
+
+### What We Win with Typed Graphs
+
+When reasoning is grounded in a typed graph, causal chains become tractable.
+Each step in a reasoning chain is auditable: you can inspect the edge, the
+predicate, the source paper, and the confidence score. Errors can be localized
+to specific claims. Nothing is buried in a similarity score.
+
+Provenance tracking enables honest uncertainty quantification. Three hops at
+0.9 confidence each give you 0.73 -- you can show that arithmetic. A cosine
+similarity chain gives you nothing comparable: there is no principled way to
+compose similarity scores into a compound confidence.
+
+Reasoning becomes as straightforward as breadth-first search on a graph where
+node identity is unambiguous. Uncertainty is represented as a confidence score
+on each claim. Sources are represented by explicit links from claims to the
+papers or records that support them.
+
+```{=latex}
+\vspace{0.5em}
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.5cm,
+  box/.style={
+    draw, rounded corners=3pt,
+    text width=3.2cm, align=center,
+    font=\small\sffamily,
+    inner sep=5pt
+  },
+  subbox/.style={
+    draw=gray!50, rounded corners=2pt,
+    text width=2.8cm, align=left,
+    font=\footnotesize\sffamily,
+    inner sep=5pt, fill=gray!10
+  },
+  arr/.style={-{Stealth[length=5pt]}, thick}
+]
+\node[box] (A) {Unstructured Text};
+\node[box, below=of A] (B) {Extraction (LLM)};
+\node[box, below=of B] (C) {Mentions (strings)};
+\node[box, below=of C] (D) {Identity Resolution};
+\node[subbox, below=0pt of D, anchor=north]
+  (Dsub) {canonical IDs\\deduplication};
+\node[box, below=of Dsub] (E) {Typed Graph};
+\node[subbox, below=0pt of E, anchor=north]
+  (Esub) {entity types\\predicates\\domain / range\\provenance};
+\node[box, below=of Esub] (F) {Queries / Traversals};
+\node[box, below=of F] (G) {Machine Reasoning};
+\node[subbox, below=0pt of G, anchor=north]
+  (Gsub) {multi-step\\composable\\inspectable};
+\draw[arr] (A) -- (B);
+\draw[arr] (B) -- (C);
+\draw[arr] (C) -- (D);
+\draw[arr] (Dsub.south) -- (E.north);
+\draw[arr] (Esub.south) -- (F.north);
+\draw[arr] (F) -- (G);
+\end{tikzpicture}
+\end{center}
+\vspace{0.5em}
 ```
-Unstructured Text
-       |
-       v
-  Extraction (LLM)
-       |
-       v
-  Mentions (strings)
-       |
-       v
-  Identity Resolution
-  -- canonical IDs, deduplication
-       |
-       v
-  Typed Graph
-  -- entity types, predicates, domain/range, provenance
-       |
-       v
-  Queries / Traversals
-       |
-       v
-  Machine Reasoning
-  -- multi-step, composable, inspectable
-```
+
+That is the minimum standard for reasoning in high-stakes domains. Not a
+guarantee of truth -- but a guarantee of inspectability, reproducibility,
+and the possibility of correction.
+
+---
 
 ## Preface
 

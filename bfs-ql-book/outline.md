@@ -7,98 +7,29 @@
 
 *This foreword appears in all three volumes of the Graphwright series.*
 
-- High-stakes machine reasoning --
-  domains like law, medicine, buildings and bridges,
-  when mistakes are made, lives and livelihoods are threatened
-- When the cost of a hallucination is a misdiagnosis or a collapsed
-  bridge, you can't accept "good enough" LLM results, you need the
-  ability to explain its reasoning in terms a domain expert can
-  verify and dispute
-- A user needs to be able to ask "why that answer" and get back
-  something trustworthy -- typed graphs with provenance make that
-  possible
-- We need "things not strings" -- make statements about real
-  things in the world, don't just look for string similarity
-- Identity, causality, consequential reasoning -- be able to
-  reason about cause and effect, consequences, recognize when
-  two mentions refer to the same thing
-  
-### RAG vs Graph-RAG
+High-stakes reasoning requires things, not strings.
 
-- Associating embeddings by cosine similarity is useful for
-  quick google-style lookups which you'll confirm manually
-  after the fact
-- You don't get identity (this thing *is* that thing)
-- You don't get cause-and-effect (this thing *caused* that thing)
-- Graph-RAG isn't just better RAG, it's a different epistemic
-  commitment
+Similarity is not identity. Retrieval is not reasoning.
 
-  - LLMs are the extraction and natural-language interface
-    layer
-  - The graph is the reasoning substrate
+The LLM is the extraction and language layer. The graph is the reasoning
+substrate. Conflating those two roles is where most systems go wrong.
 
-### RDF gets many things right
+RDF got the atoms right. It left the chemistry uncontrolled.
 
-- RDF got the atoms right, left the chemistry uncontrolled
+A typed graph fixes the chemistry: a finite, closed vocabulary of entity
+types and predicates, each predicate with declared domain and range. What
+falls outside the vocabulary is inexpressible, not merely discouraged.
+Category errors become detectable. Subtypes inherit constraints.
 
-  - Triple as atomic unit of knowledge -- brilliant, keep this
-  - URIs as IDs -- brilliant, keep this too
-  - Querying (SPARQL) -- very good, want some version of this
-  - OWL2 reasoning -- good direction, not far enough, not
-    enough enforcement
+Canonical IDs connect the graph to the edifice of human knowledge. Two
+sources that agree on an ID agree on a referent. Multi-hop causal reasoning
+becomes possible when identity is unambiguous.
 
-- No entity types so little context about a thing other than
-  OWL2 triples
-- Predicates are unrestricted -> no category error detection
-- Garbage in, garbage out
+Provenance makes uncertainty composable. Inspectability makes correction
+possible.
 
-### Typed Graphs
-
-- Fixed set (like an enum) of entity types
-- Fixed set of predicates
-- Each predicate has a "domain" (fixed set of allowed entity
-  types for the subject) and "range" (fixed set of allowed
-  entity types for the object)
-- Easy detection of category errors
-
-  - Assertion `aspirin treats BRCA1` is rejected because...
-  - `treats` predicate has domain `[Drug]`, range `[Disease]`
-  - `aspirin` is a `Drug` -> okay
-  - `BRCA1` is a `Gene`, not a `Disease` -> violation
-
-- Many (most?) entities in the typed graph have canonical IDs
-  which enable seamless graph traversal (multi-hop reasoning)
-  across sources
-
-### Canonical IDs and Authoritative Ontologies
-
-- Many domains have official ontologies (medicine has several,
-  for diseases, genes, drugs, organisms...) -- known, respected,
-  carefully curated over years/decades/centuries
-- Authoritative ontologies (AOs) enable reasoning across sources
-  by ensuring that mentions reference the same real-world thing
-- AOs provide a way to assign official IDs to things
-- AOs connect IDs to the knowledge that humanity has collected and
-  curated over centuries
-- Problems to solve: synonyms and deduplication, how to extract
-  mentions from unstructured text, building and maintaining
-  provenance
-
-### What we win with typed graphs
-
-- Causal chains become tractable
-
-  - Each step is auditable
-  - Errors can be localized
-  - Not buried in a similarity score
-
-- Provenance tracking enables appropriate caveats: three hops at
-  0.9 confidence each gives you 0.73 -- you can show that math --
-  a cosine similarity chain gives you nothing
-- Reasoning is as easy as breadth-first search on a graph with
-  canonical IDs where node identity is unambiguous across sources
-- Uncertainty -- represented with numerical confidence score
-- Source -- represented by linking a claim to the source paper
+This is the minimum standard. Not a guarantee of truth -- a guarantee that
+truth is pursuable.
 
 ---
 
