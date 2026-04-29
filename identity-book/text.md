@@ -216,123 +216,197 @@ to be architectural, not aspirational.
 
 # Part I: The Problem of Identity
 
-## Chapter 1: What Is Canonical Identity and Why Does It Matter?
+## Chapter 1: What a Typed Graph Is
 
-`\chaptermark{Canonical Identity}`{=latex}
+`\chaptermark{What a Typed Graph Is}`{=latex}
 
-### The Same Thing, Many Names
+### Beyond the Triple
 
-Pick any well-studied drug and search for it across a corpus of biomedical
-papers. You will find it referred to by its generic name, its brand names, its
-chemical name, its abbreviation, and occasionally a misspelling that has
-propagated through citations. Desmopressin appears as "desmopressin",
-"DDAVP", "dDAVP", "1-deamino-8-D-arginine vasopressin", "desmopressin
-acetate", and in older papers simply as "the synthetic vasopressin analogue."
-In a graph built from extracted mentions without identity resolution\index{entity resolution}, these are
-six unconnected nodes. Every relationship involving desmopressin is split across
-them. Queries return partial results. Confidence aggregation is meaningless.
-The graph is sophisticated extraction masquerading as structured knowledge.
+The triple is a good idea. Subject, predicate, object: the smallest unit of
+structured knowledge that can stand alone, be stored, be retrieved, and be
+combined with other triples to form chains of inference. The Resource
+Description Framework\index{RDF} built a global linked-data infrastructure on
+this idea, and that infrastructure is real and useful. We keep the triple.
 
-This is not a corner case. It is the default. Every entity in every technical
-domain accumulates surface form\index{surface form} variation over time. Genes have official symbols
-and common names and names that were superseded when two research groups
-discovered the same gene independently. Diseases have clinical names,
-eponyms, and ICD\index{ICD} codes. Chemicals have IUPAC names, trade names, and CAS
-registry numbers. The variation is not noise to be cleaned up -- it is a
-faithful record of how human knowledge actually develops, in parallel, across
-communities that do not always talk to each other.
+What RDF did not provide was any constraint on what could appear in subject,
+predicate, or object position. Any URI can be a subject. Any URI can be a
+predicate. Any URI or literal can be an object. The result is a system with
+no type layer: a node carries no intrinsic information about what kind of
+thing it represents, and a predicate carries no specification of what kinds
+of things are allowed on either side of it. The graph accepts whatever it
+is handed.
 
-Canonical identity resolution is the process of deciding that all these surface
-forms refer to the same thing and assigning them a single stable identifier.
-The identity server is the service that does this.
+A typed graph\index{typed graph} adds two constraints that RDF leaves open. First, a finite
+enumeration of entity types: every node in the graph is classified as
+exactly one kind of thing, and that classification is drawn from a closed
+list. Second, a finite vocabulary of predicates, each annotated with a
+domain and a range: the domain is the set of entity types permitted as the
+subject of that predicate, and the range is the set permitted as the object.
+Together these define a schema -- not as documentation about what the graph
+is supposed to contain, but as a machine-checkable contract that governs
+every write.
 
-Nothing about that idea is specific to a **knowledge graph** as a storage
-shape. The same problem appears in a relational warehouse, a document database,
-a lakehouse table, or a folder of CSV exports: if the same real-world entity can
-appear under more than one string, you either resolve those strings to one
-stable identifier or accept broken joins, wrong aggregates, and inconsistent
-merges across systems. This book speaks the language of graphs because the
-companion volumes build and query a graph, and because multi-hop structure makes
-the failure modes vivid -- but canonical identity is a requirement of faithful
-**data representation**, not of any particular physical schema.
+This sounds like a small addition. It is not. The combination of typed nodes
+and constrained predicates changes what the graph can guarantee, what errors
+it can detect, and what reasoning it can support. The rest of this chapter
+works through each consequence.
 
-### Identity Is Load-Bearing
+### The Ontology as Contract
 
-A knowledge graph without canonical identity\index{canonical identity} is not a degraded version of a
-knowledge graph with canonical identity. It is a different kind of artifact
-entirely -- one that cannot support multi-hop reasoning\index{multi-hop reasoning} across sources, cannot
-aggregate evidence across papers, cannot compose with other graphs, and cannot
-be trusted in high-stakes applications. Identity is not a quality improvement.
-It is load-bearing structure.
+Documentation describes what a system is supposed to do. A contract specifies
+what a system will enforce. The distinction matters because documentation is
+read by humans who may or may not follow it, while contracts are checked
+mechanically and violations are rejected, not filed as tickets.
 
-Consider what becomes possible when every entity has a canonical ID\index{canonical ID}:
+The schema of a typed graph is a contract in this second sense. When a
+predicate is defined with domain `[Drug]` and range `[Disease]`, that
+definition is not advice. It is a gate. Any proposed triple that presents a
+non-Drug as the subject or a non-Disease as the object is rejected at write
+time. The graph never contains the invalid triple. There is no later cleanup
+step that might or might not run. There is no audit that catches violations
+after they have propagated through downstream queries. The constraint is
+enforced at the point of insertion, unconditionally.
 
-Multi-hop reasoning works correctly. A query asking "what drugs have been used
-to treat conditions caused by the gene this mutation affects" requires traversing
-three relationship types. If the gene appears under two different names in two
-different papers, the traversal breaks at the second hop. Canonical identity
-closes the gap.
+This matters most under scale and automation. A knowledge graph built by
+hand, from a small corpus, by a careful engineer, may stay coherent without
+mechanical enforcement -- the engineer notices when something looks wrong.
+A knowledge graph built by an extraction pipeline processing thousands of
+papers cannot rely on human review at insertion time. The pipeline will
+produce malformed triples. The only question is whether those triples are
+rejected immediately or stored and discovered later, after they have joined
+the graph and influenced derived facts. A contract-enforcing schema answers
+that question at the architectural level, not the operational one.
 
-Evidence aggregation is meaningful. The claim "desmopressin inhibits cortisol
-secretion" appearing in twelve papers is stronger than the same claim appearing
-in one. But this aggregation is only possible if all twelve instances resolve
-to the same entity. Without canonical identity, you have twelve separate claims
-about six different nodes.
+The domain spec\index{domain spec} -- the Python module that defines the entity type
+enumeration and the predicate list -- is where the contract lives. It is the
+single source of truth for what the graph can express. Everything the
+identity server, the extraction pipeline, and the query layer know about
+valid graph structure comes from the domain spec. Changing the contract means
+changing the domain spec; there is no other place to look.
 
-Composition across graphs is automatic. When a graph built from PubMed\index{PubMed} papers
-and a graph built from clinical trial data both anchor their drug entities to
-RxNorm, a query can traverse from a research finding to a clinical trial
-outcome without any special bridging logic. The shared authority is the bridge.
+### Finite vs. Open-World
 
-### The Epistemic Commons
+RDF and OWL operate under the open-world assumption\index{open-world assumption}: if a statement
+is not asserted in the graph, that does not mean it is false. It might be
+true but not yet recorded. The graph is always potentially incomplete, and
+absence of an assertion carries no information.
 
-The authorities the identity server consults -- MeSH\index{MeSH}, RxNorm\index{RxNorm}, HGNC\index{HGNC}, UniProt\index{UniProt},
-ChEMBL\index{ChEMBL} -- are not bureaucratic naming systems. They are the accumulated judgment
-of expert communities about how to organize their domain of knowledge. When you
-anchor an entity to a MeSH\index{MeSH} term, you are not just assigning a unique key. You
-are connecting that entity to its place in a taxonomy built by the National
-Library of Medicine over decades: its definition, its hierarchical position
-among related concepts, its known synonyms, its cross-references to related
-terms in adjacent domains.
+A typed graph operates under the closed-world assumption\index{closed-world assumption}: the predicate
+vocabulary is finite and fixed. A predicate that does not appear in the
+schema does not exist. An assertion that uses a predicate outside the schema
+is not an unknown fact -- it is a type error.
 
-This is what it means to place a fact. An unanchored claim that "desmopressin
-inhibits cortisol" is a string in a database. An anchored claim that
-RxNorm:3251 inhibits MeSH:D003345 is a fact located in the edifice of human
-biomedical knowledge, connected to everything the biomedical community knows
-about desmopressin and cortisol, traceable to the source that made the claim,
-and composable with every other graph that uses the same authorities.
+The practical consequence is that absence becomes informative. If the
+predicate `inhibits` appears in the schema and no edge labeled `inhibits`
+connects two particular entities, that means something: either the
+relationship does not hold, or the corpus does not assert it. These two
+possibilities are distinct -- and the distinction is explicit, not silent.
+A graph built from a particular corpus knows its own coverage. A query can
+ask not just "what does this drug inhibit?" but "has this relationship been
+studied, and if so, in what papers?"
 
-The epistemic commons\index{epistemic commons} -- the shared identifier infrastructure built by the
-biomedical, chemical, legal, and geographic communities -- was built for human
-use. The identity server makes it available to machines. That is not a small
-thing.
+The open-world assumption is appropriate when the graph is meant to model
+all possible knowledge. A typed graph makes a different bet: that the
+domain is bounded and agreed upon, that the predicate vocabulary can be
+enumerated, and that the power gained from closed-world reasoning is worth
+the discipline required to define the schema before writing data into it.
+For high-stakes domains -- medicine, law, engineering -- that bet is worth
+making. Unbounded expressiveness is not a feature when the cost of a
+malformed assertion is a misdiagnosis.
 
-### What the Identity Server Does
+### Category Error Detection
 
-The identity server is responsible for five operations:
+A category error is a statement that is not merely false but wrong at the
+level of kind: asserting a relationship between two things of the wrong
+types. "Aspirin treats BRCA1" is not a contested empirical claim. It is the
+application of a therapeutic predicate to a gene, a type mismatch that
+signals an extraction failure rather than a factual disagreement.
 
-**Resolve**: Given a mention string and an entity type, return a canonical ID.
-This is the primary operation. It consults the lookup chain\index{lookup chain} -- exact match,
-fuzzy match, embedding\index{embedding (vectors)} similarity -- and falls back to creating a provisional
-entity if no match is found.
+Without a type layer, a graph stores this triple without comment. It may
+be assigned a low confidence score. It may be flagged by a downstream
+reviewer. It may propagate unnoticed into query results that mix it with
+valid claims. The error is in the graph.
 
-**Promote**: Given a provisional entity\index{provisional entity} that has accumulated sufficient
-evidence, upgrade it to canonical status. The promotion threshold\index{promotion} threshold is
-domain-configurable.
+With domain and range constraints, the triple is rejected before it enters
+the graph. The predicate `treats`\index{category error} has domain `[Drug]` and range
+`[Disease]`. Aspirin is classified as a Drug -- that side is fine. BRCA1
+is classified as a Gene. The range constraint fails. The triple is invalid
+and the graph never sees it.
 
-**Find synonyms**: Given a canonical ID, return all known surface forms\index{surface forms}. Used
-for query-time synonym expansion and graph inspection.
+This separation -- structural validity as a property distinct from factual
+correctness -- is one of the typed graph's central contributions. A
+well-typed triple can still be wrong. The graph may contain the assertion
+that desmopressin inhibits cortisol secretion, correctly typed and correctly
+sourced, and that assertion may turn out to be false on further evidence.
+The schema does not adjudicate the world. What it does is ensure that the
+triples reaching the factual adjudication stage are structurally coherent:
+that subjects and objects are the right kinds of things, that predicates
+are drawn from an agreed vocabulary, and that the question being asked is
+at least the right kind of question. Category errors never reach the
+adjudication stage. They are stopped earlier, by the contract.
 
-**Merge**: Given two entities determined to be the same, produce one canonical
-record. Survivor selection is domain-configurable. Provenance\index{provenance} from both
-entities is preserved.
+### Subtype Hierarchies
 
-**On entity added**: A hook called after any entity is added or updated. Used
-for downstream notifications, cache invalidation, and logging.
+Entity types do not have to be flat. A predicate whose domain includes
+`Organism` should be applicable to `Bacterium` and `Mammal` as well,
+without requiring each subtype to be listed explicitly in every predicate
+definition. The type system supports this through a subtype hierarchy: a
+directed acyclic graph of entity types where a subtype inherits the
+predicate permissions of its supertypes.
 
-These five operations are the complete interface. Everything else -- the lookup
-chain, the caching strategy, the Postgres\index{Postgres} schema, the domain service\index{domain service} HTTP calls
--- is implementation detail in service of these five operations.
+The hierarchy lives in the schema, not in the graph. Individual nodes are
+classified as leaf types -- `Dog`, `Bacterium`, `SmallMolecule` -- and
+the hierarchy determines which predicates those nodes can participate in.
+A predicate with domain `Organism` accepts a `Dog` node because `Dog` is
+a subtype of `Organism`. The graph data does not need to encode this
+inheritance; the schema carries it.
+
+This has a practical consequence for schema design: predicates should be
+declared at the most general type level that is correct. A predicate that
+applies to all living things should have domain `Organism`, not a union
+of every leaf organism type. As new leaf types are added to the schema,
+they automatically inherit the predicate without any change to the
+predicate definition. The schema grows at the leaves; the predicate
+vocabulary stays stable.
+
+### `PredicateSpec` and `EntityType`
+
+The contract has to live somewhere concrete. In the Graphwright system,
+it lives in a Python module called `domain_spec.py`\index{domain\_spec.py}, which defines two
+kinds of objects.
+
+Entity types are represented as a Python `enum.Enum`. Each member of the
+enum is one permitted node classification. The enum is the complete list:
+if a type is not a member, it does not exist in this graph. The enum can
+define a subtype hierarchy by annotating members with their parent types,
+giving the schema its DAG structure without any external configuration
+file.
+
+Predicates are represented as frozen Pydantic\index{Pydantic} models -- instances of a
+class called `PredicateSpec`\index{PredicateSpec}. A `PredicateSpec` carries the predicate's
+name, its domain (a set of entity type enum members), its range (likewise),
+and optional flags that capture additional semantic constraints:
+`is_functional` signals that a subject can have at most one object for this
+predicate; `negation_of` links a predicate to its logical inverse.
+
+Using frozen Pydantic models is not arbitrary. Frozen models cannot be
+mutated after construction, which means a `PredicateSpec` loaded from the
+domain spec at startup is the same object at every point in the server's
+lifetime. There is no window during which the schema is partially loaded
+or inconsistently represented. The domain spec is loaded once, validated
+once, and then treated as a read-only fact about the world. Any downstream
+component that holds a reference to a `PredicateSpec` holds the same
+object every other component holds. Consistency is structural, not
+procedural.
+
+The domain spec module is also where provisional types are declared and
+flagged. A type that the schema designer is not yet certain about -- one
+that might be refactored, split, or absorbed into another type as the
+domain model matures -- is marked provisional in the spec. Provisional
+types carry full type constraints and participate in the schema normally;
+the flag is a signal to domain designers, not a mechanical restriction.
+Chapter 2 introduces two provisional types specific to the Holmes corpus,
+and Chapter 3 discusses the role of provisional status in schema lifecycle.
 
 ## Chapter 2: The Scale of the Problem
 
@@ -517,336 +591,606 @@ It is the operation that connects the graph to the epistemic commons.
 
 # Part II: The Typed Graph
 
-## Chapter 4: What a Typed Graph Is
-
-`\chaptermark{What a Typed Graph Is}`{=latex}
-
-### Beyond the Triple
-
-The foundational unit of the Semantic Web\index{Semantic Web} is the RDF triple\index{RDF triple}: (subject, predicate, object). In its purest form, an untyped graph is a collection of these triples where any node can be a subject or object, and any string can be a predicate. While this flexibility was a design goal for the "Web of Data," it is a liability for an engineering artifact. In an untyped graph, you can assert that a drug "inhibits" a city, or that a gene "is_prescribed_for" a protein. The system has no grounds to object; it merely records the triple.
-
-A typed graph\index{typed graph} abandons this infinite flexibility in favor of structural guarantees. It declares a finite set of **entity types**\index{entity types} (e.g., `DRUG`, `GENE`, `DISEASE`) and a finite vocabulary of **predicates**\index{predicates}. Crucially, every predicate in a typed graph carries a domain\index{domain} and a range\index{range}: the set of entity types that may appear as its subject and object, respectively. A predicate like `inhibits` might have a domain of `(DRUG, GENE)` and a range of `(GENE, BIOLOGICAL_PROCESS)`. Any attempt to create an edge that violates these constraints is not a "bad fact"—it is a structural failure, as meaningless as a syntax error in a compiled language.
-
-### The Ontology as Contract
-
-In a typed graph, the ontology\index{ontology} is not documentation; it is a machine-checkable contract\index{contract} that governs every edge. This distinction is foundational. Documentation is aspirational—it describes how the data *should* look. A contract is enforceable—it defines what the data *is permitted* to look like.
-
-When a graph is governed by a contract, the software that interacts with it can make strong assumptions. A query optimizer knows exactly which entity types it will encounter after traversing a specific predicate. A visualization tool knows which icons to use for nodes based on their declared type. Most importantly, an ingestion pipeline can reject malformed extractions before they ever reach the database. By moving constraints from the application layer into the graph's own structure, we ensure that the graph's integrity is an architectural property rather than a convention that must be remembered by every developer.
-
-### PredicateSpec and EntityType
-
-To make these constraints concrete, we represent the ontology as a **Domain Spec**\index{domain spec}. In the reference implementation, this is defined using Pydantic\index{Pydantic} models and Python enums.
-
-```python
-from enum import Enum
-from pydantic import BaseModel, Field
-from typing import Optional, FrozenSet
-
-class EntityType(str, Enum):
-    DRUG = "drug"
-    GENE = "gene"
-    DISEASE = "disease"
-    PROCESS = "biological_process"
-
-class PredicateSpec(BaseModel):
-    name: str
-    domain: FrozenSet[EntityType]
-    range: FrozenSet[EntityType]
-    description: str
-    is_functional: bool = False
-    negation_of: Optional[str] = None
-
-    class Config:
-        frozen = True
-```
-
-The `EntityType`\index{EntityType} enum defines the closed world of things that can exist. The `PredicateSpec`\index{PredicateSpec} carries the rules for their interaction. The `domain` and `range` are sets, allowing a predicate to bridge multiple type pairs (e.g., a `DRUG` can inhibit a `GENE`, but a `GENE` can also inhibit another `GENE`). The `is_functional` flag indicates that a subject can have at most one such outgoing edge—a structural way to represent unique properties.
-
-### Where the Ontology Comes From
-
-The engineer does not invent this schema from first principles. Instead, the ontology is derived from the **epistemic commons**\index{epistemic commons}. The biomedical community has already done the hard work of defining what these types and relationships are.
-
-MeSH's\index{MeSH} category hierarchy provides the implicit entity types. RxNorm's\index{RxNorm} drug-disease relationships provide the predicates. HGNC's\index{HGNC} gene-protein associations define the domain and range constraints. The typed graph schema simply makes these implicit structures explicit and computable. By deriving the ontology from the same authorities used for identity resolution, we ensure that the graph's structure is aligned with the community's own knowledge. If the National Library of Medicine says that a drug treats a disease, the `treats` predicate in our schema will have a domain of `DRUG` and a range of `DISEASE`.
-
-### Finite vs. Open-World
-
-The typed graph is a **closed-world artifact**\index{closed-world assumption}. This is the key difference from the RDF/OWL\index{RDF/OWL} open-world assumption\index{open-world assumption}. In an open-world system, the absence of a statement means its truth is unknown. In a closed-world typed graph, predicates outside the schema do not exist. If `upregulates` is not in the domain spec, it cannot be asserted.
-
-This limitation is the source of the graph's expressive power. By bounding the vocabulary, we make the graph's contents predictable and searchable. We move from a "bag of triples" to a structured knowledge base that can be linted, validated, and queried with mathematical precision. The typed graph does not try to represent everything; it tries to represent its specific domain perfectly.
-
-## Chapter 5: The Domain Service and the Schema
-
-`\chaptermark{Domain Service}`{=latex}
-
-### What the Domain Provides
-
-The domain service is where domain knowledge lives. It is a small HTTP service --
-four endpoints, each doing one thing -- that the identity server calls when it
-needs to make a domain-specific decision.
-
-The biomedical domain service for the medlit reference implementation calls the
-PubChem\index{PubChem} API for chemical entities, the MeSH\index{MeSH} API for disease and biological
-process entities, the HGNC REST API for gene entities, and the RxNorm API for
-drug entities. It implements synonym detection thresholds tuned for biomedical
-nomenclature. It selects survivors by preferring authority-anchored records over
-provisional ones. It computes confidence from a study type\index{study type} weight table aligned
-with evidence-based medicine\index{evidence-based medicine} principles.
-
-A domain service for legal entities would call different authorities -- perhaps
-a court document database for case citations, a legislative database for
-statute references -- with different synonym criteria and different confidence
-weights (or none at all). The domain service for a materials science corpus
-would consult different authorities again.
-
-The base server does not know or care about any of this. It knows the four
-endpoint contracts. The domain service fulfills them.
-
-### Evidence Quality Weighting
-
-In evidence-based medicine\index{evidence-based medicine}, not all evidence is equal. A randomized controlled
-trial is the strongest form of evidence for a clinical claim. A meta-analysis
-that synthesizes multiple RCTs is stronger still, but depends on the quality
-of the constituent trials. An observational study is weaker; a single case
-report is the weakest form of published evidence.
-
-The domain service encodes this hierarchy in a weight table:
-
-```python
-STUDY_WEIGHTS = {
-    "meta_analysis": 0.95,
-    "rct": 1.0,
-    "cohort": 0.8,
-    "case_control": 0.7,
-    "observational": 0.6,
-    "review": 0.5,
-    "case_report": 0.4,
-}
-```
-
-When the identity server asks the domain service to compute confidence for a
-list of provenance records, the domain service looks up the study type of each
-record, retrieves its weight, and aggregates. The aggregation formula is
-configurable -- a simple maximum, a weighted mean, or a formula that rewards
-replication across independent studies.
-
-The weight table is a model, not ground truth. A well-replicated observational
-finding across five independent cohorts may be more reliable than a single
-small RCT. The weights are a defensible starting point; the domain service
-makes them transparent and filterable rather than hiding them inside a black
-box.
-
-### The Schema as a Runtime Artifact
-
-In traditional database design, the schema is a static artifact—a set of SQL DDL
-statements or a compiled Protobuf definition that remains fixed until the next
-deployment. In the typed graph architecture, we treat the schema\index{schema}
-as a dynamic runtime artifact\index{runtime artifact} served by the domain
-service.
-
-When the base identity server\index{identity server} initializes, it is
-semantically empty. It understands the mechanics of resolution and the state
-machine of entities, but it has no knowledge of the specific entity types or
-predicates that define a domain. Its first action is to query the domain
-service's `GET /schema` endpoint. The response is a serialized
-ontology\index{ontology}: a complete declaration of the finite set of
-`EntityType` enums and `PredicateSpec` objects that govern the graph.
-
-This late-binding of the ontology is what enables the separation of concerns
-between the engine and the domain. Because the base server discovers its
-constraints at runtime, it can perform predicate validation\index{predicate
-validation}, type checking\index{type checking}, and conflict
-detection\index{conflict detection} without being recompiled for every new
-project. If the medlit domain service adds a new predicate—for instance,
-`contraindicated_in(drug, disease)`—the identity server immediately inherits
-the knowledge of that predicate's domain and range constraints.
-
-By elevating the schema to a runtime artifact, we move it from being passive
-documentation to an active, executable specification. This same artifact seeds
-the graph linter\index{graph linter} (Chapter 13) and the BFS-QL compiler
-(Chapter 10), ensuring that every component in the stack is synchronized
-against a single, authoritative definition of what a well-formed claim looks
-like. The schema is not just a description of the data; it is the
-machine-readable contract that makes the data trustworthy.
-
-### Implementing the Domain Service
-
-The medlit domain service is implemented in Python using FastAPI\index{FastAPI} and Pydantic\index{Pydantic}.
-FastAPI provides automatic OpenAPI\index{OpenAPI} documentation and request validation. Pydantic
-models define the request and response schemas for each endpoint.
-
-The `/resolve-authority` endpoint accepts a mention string and entity type.
-It dispatches to the appropriate authority API based on entity type, normalizes
-the response to a canonical ID and authority name, and returns the result. On
-a cache miss, it calls the external API and caches the response for the duration
-of the run.
-
-The `/select-survivor` endpoint accepts two entity records and returns the
-preferred one. The medlit implementation prefers the record with an authority
-ID; if both have authority IDs from the same authority, it prefers the one with
-more supporting evidence; if evidence counts are equal, it prefers the more
-recently updated record.
-
-The `/compute-confidence` endpoint accepts a list of provenance records and
-returns a float. The medlit implementation looks up the study type of each
-record, applies the weight table, and returns a weighted mean capped at 0.99.
-
-The `/synonym-criteria` endpoint returns a static configuration object defining
-the similarity thresholds for fuzzy and embedding-based synonym detection.
-
-## Chapter 6: The Base Identity Server
-
-`\chaptermark{Base Identity Server}`{=latex}
-
-### Domain-Agnostic Core
-
-The base identity server contains everything that is true of identity resolution
-regardless of domain:
-
-The provisional/canonical/merged state machine. Every entity starts as
-provisional or enters directly as canonical (for provenance\index{provenance}-derived entities
-like papers and authors). Provisional entities accumulate evidence and are
-promoted when a threshold is met. Merged entities are absorbed into a survivor
-and cease to exist as independent nodes.
-
-The lookup chain. Exact match against known surface forms. Fuzzy match via
-edit distance. Embedding similarity via pgvector. These three stages are
-universal; only the thresholds and the authority consulted at each stage are
-domain-specific.
-
-Idempotency\index{idempotency}. All operations must be safe to retry. Ingestion pipelines fail.
-Runs restart from checkpoints. The identity server must produce the same result
-whether a resolve call is the first or the fifteenth for a given mention.
-
-Postgres locking. Multiple ingestion workers run concurrently. Advisory locks
-prevent race conditions on entity creation and merging without serializing the
-entire pipeline.
-
-pgvector similarity search. Embedding vectors are stored in Postgres using the
-pgvector extension. The cosine distance query `ORDER BY embedding <=> $1 LIMIT k`
-is the implementation of the embedding similarity stage of the lookup chain.
-
-None of this is domain-specific. A graph of legal entities uses the same state
-machine, the same lookup chain structure, the same idempotency\index{idempotency} requirements,
-the same locking strategy as a graph of biomedical entities. The base server
-handles all of it.
-
-### The Plugin Contract
-
-The base server calls out to a domain service for four things it cannot know:
-
-**Authority lookup**: Given a mention string and entity type, consult the
-appropriate external authority and return a canonical ID if one exists. The
-base server does not know which authorities exist, which APIs to call, or how
-to interpret their responses. The domain service knows all of this.
-
-**Synonym criteria**: Given two entity records, are they close enough to be
-considered synonyms? The threshold for synonym detection varies by domain and
-entity type. A gene symbol and a gene full name that share no characters may be
-synonyms; two drug names that differ by one character may not be.
-
-**Survivor selection**: Given two entities being merged, which record becomes
-the survivor? The domain may prefer the record with an authority ID over a
-provisional one, the record with more supporting evidence, or the more recently
-updated record. The domain service implements this preference.
-
-**Confidence weighting**: Given a list of provenance records, compute an
-aggregate confidence score\index{confidence score}. The base server provides the list; the domain
-service provides the weights and the aggregation logic. In biomedicine, an RCT
-outweighs a case report; in other domains, the weights are different or absent.
-
-These four hooks are the complete plugin contract\index{plugin contract}. The domain service implements
-them. The base server calls them. Neither needs to know anything about the
-other's internal implementation.
-
-### The Docker Image
-
-The base identity server ships as a Docker image. The image contains:
-
-- The Python service implementing the five identity server operations
-- Postgres client libraries and pgvector support
-- An HTTP client for calling the domain service
-- An LRU cache\index{LRU cache} layer wrapping the domain service client
-- A stub domain service that returns nulls and defaults
-
-The stub domain service makes the image functional without any domain
-configuration. It resolves nothing to authorities (all entities start as
-provisional), accepts all candidates as non-synonyms, always selects the first
-entity as the survivor, and returns a confidence of 0.5 for all provenance
-lists. This is correct behavior for a system with no domain knowledge -- it is
-not an error state.
-
-To deploy the identity server for a real domain, replace the stub with a real
-domain service pointed at the appropriate authorities. The identity server image
-does not change. The domain service is a separate container.
-
-### Caching
-
-#### Why caching is not optional
-
-The lookup chain calls the domain service for every entity mention that does
-not resolve at the exact match stage. In a corpus of ten thousand papers, this
-means tens of thousands of HTTP calls to the domain service, each of which may
-call an external authority API. Without caching, a large corpus run is slow,
-expensive in API costs, and potentially rate-limited out of completion.
-
-The caching strategy has two levels: an LRU cache in the identity server that
-caches domain service HTTP responses, and a long-TTL cache in the domain service
-that caches external authority API responses. Together they ensure that the
-expensive operations -- external API calls -- happen once per unique entity, not
-once per mention.
-
-#### LRU cache in the identity server
-
-The identity server wraps its HTTP client to the domain service with an LRU
-cache keyed on `(mention, entity_type)`. A call to `/resolve-authority` for
-"desmopressin" with type "drug" will hit the external authority API on the
-first mention in the corpus and return the cached result for every subsequent
-mention.
-
-The hit rate for this cache is high in practice. Entity mentions are not
-uniformly distributed across a corpus -- a paper about Cushing's disease\index{Cushing's disease} will
-mention ACTH, cortisol, and desmopressin many times, and these same entities
-will appear in many other papers about the same disease. The most-mentioned
-entities are exactly the ones that benefit most from caching.
-
-Cache size is configurable. For a corpus run that processes all papers
-sequentially in a single worker, an LRU size of 10,000 entries is sufficient
-to capture the hot set of entities in most domains. For parallel workers, each
-worker maintains its own cache; there is no shared cache between workers, which
-avoids coordination overhead at the cost of some redundant API calls at the
-start of each worker's run.
-
-#### Long-TTL cache in the domain service
-
-The domain service caches external authority API responses with a long TTL --
-hours or days, or for the duration of a batch run. Authority records are stable:
-a MeSH\index{MeSH} term's canonical ID and synonyms do not change between the start and end
-of a corpus ingestion run. There is no value in fetching the same authority
-record twice.
-
-The domain service uses Redis\index{Redis} for this cache. Redis provides TTL-based
-expiration and handles cache persistence across domain service restarts. If the
-domain service is restarted mid-run, the cache survives the restart and the run
-can continue without re-fetching all previously resolved authority records.
-
-This is the most important cache in the system. External authority API calls are
-the bottleneck for resolution performance. The domain service cache eliminates
-them after the first call.
-
-#### Co-location
-
-The identity server, domain service, Postgres, and Redis run in the same
-docker-compose\index{docker-compose} network. HTTP calls between them traverse a virtual network
-interface; latency is sub-millisecond. The caching strategy is designed for
-this topology -- it assumes that cache misses are cheap (a local network call to
-Redis or Postgres) and that the expensive operations (external authority APIs)
-are eliminated by caching.
-
-If the identity server and domain service are deployed in separate network
-regions, the latency assumptions change. The caching strategy remains correct
-but the per-call cost of cache misses increases. Co-location is a deployment
-requirement for the performance characteristics described here, not just a
-convenience.
+## Chapter 4: What an Authoritative Ontology Is
+
+`\chaptermark{What an Authoritative Ontology Is}`{=latex}
+
+### Strings vs. Things
+
+Two passages in two different Holmes stories both mention "Holmes." In one,
+Watson records that Holmes spent three days in disguise as an elderly Italian
+priest. In another, a client addresses him directly as "Mr. Holmes." These
+are the same person. A human reader does not deliberate about this. The
+referent is unambiguous.
+
+A graph built from extracted mentions without identity resolution does
+deliberate -- or rather, it does not deliberate at all, and that is the
+problem. It creates a node for the string "Holmes," a node for "Mr. Holmes,"
+possibly a node for "the detective," and stores relationships incident to
+each. The three nodes are not connected. A query for everything the graph
+knows about Sherlock Holmes returns a fraction of what was extracted, split
+across nodes that the graph has no mechanism to join.
+
+This is the strings-vs.-things\index{strings vs.\ things} problem. A string is a sequence of
+characters. A thing is a real-world entity that strings can refer to, and
+that multiple strings can refer to simultaneously. A knowledge graph that
+operates at the level of strings is storing references to things without
+storing the things themselves. The graph is, in that sense, a collection of
+pointers that has lost track of what it is pointing at.
+
+Canonical identity\index{canonical identity} is the mechanism that makes the transition from strings
+to things. It assigns each real-world entity a single stable identifier, and
+it resolves surface form variation -- synonyms, abbreviations, misspellings,
+alternate names -- to that identifier. The result is a graph where every
+node represents a thing, not a mention, and where two nodes connected by an
+edge are genuinely related, not merely co-occurring in text.
+
+The identifier needs a home. It cannot be invented arbitrarily, or it will
+be invented differently by every system that builds a graph over the same
+domain. Two graphs that assign different identifiers to the same entity
+cannot be composed without a third system that bridges their identifier
+spaces -- and that bridging system faces exactly the same problem the
+original graphs faced. The solution is to anchor identifiers to an external
+authority: a community that has already done the work of naming things
+unambiguously in this domain, whose identifiers are stable, whose coverage
+is known, and whose judgment about what constitutes a distinct entity is
+trustworthy.
+
+That external authority is an authoritative ontology.
+
+### What an Authoritative Ontology Provides
+
+An authoritative ontology\index{authoritative ontology} is more than a naming system. It is a
+community's organized understanding of a domain, encoded in a form that
+machines can consume. At minimum it provides four things.
+
+**A stable identifier.** Each entity in the ontology has an identifier that
+does not change when the entity's preferred name changes, when new
+information is discovered about it, or when the ontology is reorganized.
+Stability is what makes it safe to use the identifier as a graph node key.
+A node keyed on a string name is hostage to whatever renaming decision the
+community makes next. A node keyed on a stable ID survives those decisions
+intact.
+
+**A canonical name and known synonyms.** The ontology records what the
+community currently considers the preferred way to refer to this entity,
+along with all the alternate names it has been known by. This is the
+synonym table that identity resolution consults. The graph does not need to
+maintain its own synonym list for well-studied entities -- it inherits the
+ontology's, which is likely to be more complete and more carefully curated
+than anything a graph-building pipeline could produce.
+
+**A position in a relational structure.** Most authoritative ontologies
+are not flat lists of names. They encode relationships: hierarchical
+position (this disease is a subtype of that class of diseases), cross-domain
+links (this drug targets that gene), and semantic relationships between
+concepts. When a graph entity is anchored to an ontology term, it inherits
+that entity's position in a web of knowledge that the community assembled
+over years or decades. A traversal that starts from that entity can follow
+edges that were never extracted from any text -- they come from the ontology
+itself.
+
+**Community trust.** An authoritative ontology is maintained by an
+identified community with a stake in its accuracy and a process for
+correcting errors. MeSH\index{MeSH} is maintained by the National Library of Medicine.
+HGNC\index{HGNC} is maintained by the HUGO Gene Nomenclature Committee. UniProt\index{UniProt} is
+maintained by a consortium of Swiss, American, and European research
+institutes. The authority is not just the data -- it is the human
+organization behind the data, accountable for its quality over time.
+
+A canonical ID drawn from such an authority is not just a unique key. It is
+a claim that this entity has been placed in the epistemic commons\index{epistemic commons} of its
+domain -- that it has been named by people who know the domain, cross-
+referenced against adjacent knowledge, and assigned a position in the
+community's shared understanding. That placement is inherited by any graph
+that anchors to the same identifier.
+
+### URIs as Stable Referents
+
+The cleanest implementation of this idea is the one the web already
+provides. A URI -- a Uniform Resource Identifier -- is a globally unique,
+syntactically unambiguous name for a thing. Two systems that use the same
+URI for the same entity agree on the referent without any negotiation. No
+central registry is required beyond whatever system minted the URI in the
+first place.
+
+Wikidata\index{Wikidata} exploits this directly. Every entity in Wikidata has a stable
+URI of the form `https://www.wikidata.org/entity/Q{n}`. These URIs are
+dereferenceable: following them returns structured data about the entity.
+They are stable: the Wikidata community treats ID permanence as a design
+commitment. They are broadly scoped: Wikidata covers geographic entities,
+historical figures, organizations, creative works, biological taxa, chemical
+compounds, and much else. And they are cross-referenced: each Wikidata
+entity links to its identifiers in other authoritative systems, making
+Wikidata a practical hub for navigating between identifier spaces.
+
+Wikipedia's article URLs serve a similar function for a narrower purpose.
+The URL of an article is, for most entities significant enough to have a
+Wikipedia article, a stable and globally recognized identifier. Two systems
+that use the Wikipedia URL for the same entity agree on the referent even if
+they use entirely different internal representations. The URL is not just an
+address -- it is an identity claim, backed by the editorial community that
+maintains the article and keeps the URL pointing at the right thing.
+
+This is the model the Holmes domain will use, for a domain-specific reason
+explored in Chapter 5. For now, the structural point is general: URI-based
+identifiers, drawn from sources with a community commitment to stability,
+are the practical implementation of "things, not strings" in a graph
+context. Two graphs that share a URI share a referent. Composition becomes
+a matter of set intersection on identifier spaces, not a disambiguation
+problem.
+
+### Domains Without Official Authoritative Ontologies
+
+Medicine, chemistry, biology, and geography have mature authoritative
+ontologies built over decades by large professional communities. Most domains
+do not. A graph built over legal case law, historical correspondence,
+engineering specifications, or literary fiction has no MeSH to consult, no
+HGNC, no ChEMBL\index{ChEMBL}. The entities in those domains have not been enumerated by
+any standards body. Their synonyms have not been catalogued. Their
+relationships have not been formalized.
+
+This is not a reason to abandon canonical identity. It is a reason to be
+clear about what "authoritative" means in each domain.
+
+In domains without official ontologies, authority is assembled from whatever
+stable, community-maintained resources exist. A well-maintained wiki.
+A reference database maintained by a scholarly community. A curated
+catalogue published by a professional organization. The assessment criteria
+are the same as for a formal ontology: Does it cover the entities this
+graph needs? Are its identifiers stable? Is there a community behind it
+with an interest in maintaining it? The source of authority may be less
+formal, but the function is identical.
+
+The Holmes corpus illustrates this directly. Sherlock Holmes is one of the
+most extensively documented fictional universes in existence, with a devoted
+scholarly community that has catalogued its entities in considerable detail.
+Chapter 5 examines what that community has produced and how it can serve as
+a domain authoritative ontology for a graph built over the stories. The
+assessment is honest about fitness: coverage, stability, identifier
+structure. No source is assumed to be authoritative simply because it
+exists.
+
+Where no external source fits -- where entities are too obscure, too
+domain-specific, or too newly coined to appear in any catalogue -- the
+identity server mints provisional identifiers. Provisional entities are
+valid graph nodes. They participate in the schema with full type constraints.
+They accumulate evidence. They can be promoted to canonical status when
+evidence reaches a threshold, or merged with a later-discovered canonical
+entity without requiring re-ingestion of the edges that reference them.
+The graph does not stall because an entity cannot be immediately anchored.
+It records uncertainty honestly and continues.
+
+The boundary between "has an authoritative ontology" and "does not" is not
+a binary. It is a spectrum. A graph built over biomedical literature sits
+near one end: rich, overlapping authoritative ontologies, decades of
+curation, high identifier stability. A graph built over a collection of
+Victorian detective stories sits further along, with a smaller community
+and a less formal apparatus, but a genuine scholarly tradition that can
+serve the same function. A graph built over proprietary internal documents
+may have no external authority at all, and must construct its own -- a
+harder problem, addressed in the discussion of domain service design in
+Part IV. The architecture is the same in all cases. What varies is how much
+of the authority must be constructed locally rather than inherited from the
+community.
+
+## Chapter 5: The Baker Street Wiki as Domain AO
+
+`\chaptermark{The Baker Street Wiki}`{=latex}
+
+### Assessment of Fitness
+
+An authoritative ontology earns that designation. The assessment is not
+ceremonial -- it is the work of establishing that a source is fit to serve
+as the identity backbone of a graph, and that entities anchored to it will
+remain anchored as the graph grows, ages, and is composed with other graphs.
+Three criteria matter: coverage, stability, and identifier structure.
+
+**Coverage** is the question of whether the source has an entry for every
+entity the graph needs to represent. A source with excellent coverage of
+major characters and none of minor ones forces a hybrid strategy from the
+start: canonical anchors for some entities, provisional identifiers for
+others, with the boundary drawn by the source's editorial decisions rather
+than the graph's needs. Partial coverage is workable -- the identity server
+is designed for it -- but it is a cost, and it should be assessed honestly
+before committing to a source.
+
+**Stability** is the question of whether identifiers will remain valid over
+time. A source that reorganizes its URL structure, merges articles, or
+deletes entries without redirects will silently break any graph anchored to
+it. The canonical ID stored in the graph becomes a dead reference. Stability
+is partly a technical property of how the source manages its URLs, and
+partly a social property of the community behind it -- whether they treat
+identifier permanence as a commitment or merely as a current convenience.
+
+**Identifier structure** is the question of whether the source's URLs or
+keys are clean enough to use directly as canonical IDs. A URL that encodes
+a stable, human-readable entity name is easy to work with: it is inspectable,
+searchable, and self-documenting. A URL that encodes a session parameter,
+a content-delivery path, or a database row number opaque to the outside
+world is harder. The identifier structure does not determine whether a source
+can be used, but it affects how much adapter logic the domain service needs
+to write.
+
+The Baker Street Wiki\index{Baker Street Wiki} -- hosted at \texttt{bakerstreet.fandom.com} -- is the
+most comprehensive publicly available reference for the Sherlock Holmes
+canonical stories. It is a fan-maintained wiki in the Fandom network,
+with articles covering characters, locations, objects, events, and stories
+across the entire Conan Doyle\index{Doyle, Arthur Conan} corpus. Assessing it against the three
+criteria:
+
+Coverage is strong for the canonical stories. Every named character of
+any significance in the sixty stories of the original canon has an article.
+Major locations -- Baker Street itself, Baskerville Hall, the Reichenbach
+Falls -- are documented in detail. Significant objects -- the blue carbuncle,
+the speckled band, Watson's service revolver -- have entries. The coverage
+thins for truly minor figures: a landlady mentioned once by name, an
+unnamed constable who appears in a single scene. These will become
+provisional entities in the graph regardless of which AO is chosen.
+
+Stability is adequate. Fandom wikis do not guarantee identifier permanence
+in the way that Wikidata does, and the history of fan wikis includes
+migrations, reorganizations, and domain changes. The Baker Street Wiki
+has been stable at its current domain for long enough to constitute a
+reasonable bet, and its article titles -- which drive its URL structure --
+are unlikely to change for entities as well-documented as Holmes, Watson,
+and Irene Adler. The risk is real but manageable: the domain service can
+maintain a mapping from Baker Street Wiki URLs to local identifiers, so
+that if a URL changes, the update is made once in the domain service and
+propagates automatically to any graph anchored through it.
+
+Identifier structure is clean. A Baker Street Wiki URL takes the form
+\texttt{https://bakerstreet.fandom.com/wiki/\{Article\_Title\}}, where the
+article title is the canonical name of the entity with spaces encoded as
+underscores. This is inspectable and self-documenting. The URL for
+Sherlock Holmes is \texttt{https://bakerstreet.fandom.com/wiki/Sherlock\_Holmes}.
+The URL for Irene Adler is
+\texttt{https://bakerstreet.fandom.com/wiki/Irene\_Adler}. No opaque
+database keys, no session parameters, no content-delivery indirection.
+The identifier is the name, structured for machine consumption.
+
+The Baker Street Wiki is a reasonable domain AO for this corpus. It is not
+perfect. It is fit for purpose.
+
+### Using Wiki Page URLs as Canonical IDs
+
+The practical consequence of the assessment is straightforward: each Holmes
+entity in the graph is assigned the URL of its Baker Street Wiki article as
+its canonical ID. No external identifier service is required. No mapping to
+a formal ontology's numbering scheme needs to be maintained. The AO is a
+static resource that the domain service can query -- or cache locally, since
+the wiki changes rarely -- and the identifier is the URL itself.
+
+This simplicity is worth noting because it runs against a common instinct
+in knowledge graph design, which is to mint clean internal identifiers --
+short strings or UUIDs -- and maintain a separate mapping to external
+sources. That architecture has merits when multiple external sources need
+to be reconciled, when the external source's identifiers are unstable, or
+when the internal identifier space needs to be controlled for performance
+reasons. For a single-domain graph anchored to one stable AO with clean
+URL structure, it adds complexity without adding value. The URL is the
+identifier. The domain service uses it directly.
+
+The domain service's \texttt{resolve-authority} endpoint -- which the
+identity server calls when it cannot resolve a mention by exact or fuzzy
+match against its local database -- queries the Baker Street Wiki by
+constructing a candidate URL from the mention string and checking whether
+the article exists. If the article exists and the entity type is consistent
+with what the article describes, the URL is returned as the canonical ID.
+If the article does not exist, or if the article describes an entity of
+the wrong type, the call returns null and the identity server falls back to
+the next stage of the lookup chain.
+
+The domain service also benefits from the wiki's redirect structure. A
+query for "Holmes" will redirect to "Sherlock\_Holmes." A query for
+"Sherlock" will redirect to the same article. The redirect is the wiki's
+own synonym resolution, and the domain service can follow it: any URL that
+resolves to the canonical article URL, whether directly or through
+redirects, is treated as a surface form of the same entity.
+
+### Synonym Resolution via the Authoritative Ontology
+
+The Baker Street Wiki's synonym coverage is partly explicit -- alias lists
+in article infoboxes, redirect articles for common alternate names -- and
+partly implicit in the redirect structure. Both forms are useful.
+
+"Holmes," "Sherlock," "Mr. Holmes," "the great detective," "the world's
+only consulting detective" -- these all refer to the same person, and
+a reader of the stories knows this immediately. An extraction pipeline
+does not. It sees strings, and it needs a lookup table that maps these
+strings to the canonical ID. The Baker Street Wiki provides a starting
+point for that table: the redirect graph captures the most common alternate
+names, and the alias field in structured article data captures others.
+
+What the wiki does not capture is the full range of surface forms that
+appear in natural text. Contextual references -- "my friend," "the
+detective," "he" -- are not resolvable from a synonym table alone, and are
+outside the scope of the identity server in any case: pronoun resolution
+is an extraction-layer concern, and by the time a mention reaches the
+identity server it has already been classified as a named entity. The
+identity server resolves named mentions; the extraction pipeline is
+responsible for deciding which pronouns and contextual references to
+convert into named mentions before passing them downstream.
+
+Within the space of named mentions, the synonym lookup operates as follows.
+An exact match against the synonym table is attempted first. If the mention
+string appears in the table, the canonical ID is returned immediately. If
+it does not, fuzzy matching against the synonym table catches misspellings
+and minor variations. If fuzzy matching fails to produce a confident match,
+embedding similarity compares the mention against the full set of known
+surface forms in vector space. The chain is ordered by cost: exact match
+is free, fuzzy matching is cheap, embedding similarity is expensive and
+reserved for cases the cheaper methods cannot handle. Chapter 6 examines
+this lookup chain in detail.
+
+### Entities the Wiki Does Not Cover
+
+Every corpus contains entities that no authoritative source has documented.
+In the Holmes corpus, these are typically minor figures: the unnamed
+landlady of a client, a constable referred to only by the narrator's
+description, a location invented for a single story that the Baker Street
+Wiki has not thought worth a dedicated article. These entities exist in the
+text. Relationships involving them are real claims that the graph should
+record. Their absence from the wiki is a coverage gap in the AO, not a
+reason to discard the information.
+
+The identity server handles this through provisional entities\index{provisional entity}. When the
+lookup chain -- exact match, fuzzy match, embedding similarity, AO query --
+exhausts without finding a match, the identity server mints a local
+identifier for the entity: a UUID prefixed with a namespace marker that
+distinguishes it from Baker Street Wiki URLs. The entity is entered into
+the identity database as provisional: real, typed, usable, but not yet
+anchored to any external authority.
+
+Provisional entities are full graph citizens. They receive the same type
+constraints as canonical entities. Edges can reference them. They
+accumulate evidence across multiple extractions. If, on a later ingestion
+run, the same entity is encountered again and a match is found -- because
+the AO has since added an article, or because a different surface form now
+matches -- the provisional entity can be promoted to canonical status, and
+all edges that referenced the provisional ID are updated to reference the
+canonical one. The graph does not need to be re-ingested. The promotion
+operation is surgical.
+
+The existence of provisional entities means the graph can be built
+incrementally, with honest uncertainty, without stalling on entities that
+cannot yet be resolved. The Holmes corpus has a finite entity population,
+and most of it is well-covered by the Baker Street Wiki. The provisional
+tail is small. But the architecture that handles it cleanly for Holmes
+handles it equally well for a domain where the AO covers thirty percent
+of the entities rather than ninety. The design does not assume ideal
+coverage.
+
+## Chapter 6: Deduplication and Provenance
+
+`\chaptermark{Deduplication and Provenance}`{=latex}
+
+### Deduplication as Graph Hygiene
+
+The most common source of structural corruption in a knowledge graph is not
+bad data. It is good data, stored twice, under different names, with no
+mechanism to recognize that the two entries refer to the same thing.
+
+A graph that contains two nodes for Irene Adler -- one created from the
+mention "Irene Adler" in one story, another from "the woman" resolved to a
+named entity in another -- has not made a factual error. Both nodes are
+correctly typed as `Person`. Both accumulate correctly extracted
+relationships. The graph's failure is structural: it has split one entity
+across two nodes, and every query that asks about Irene Adler will return
+at most half of what the graph knows about her. The other half is stored
+under a node the query did not reach.
+
+Deduplication is not a cleanup step that follows ingestion. It is a
+structural requirement that must be satisfied continuously, at ingestion
+time, for every entity mention the pipeline produces. A deduplication step
+that runs weekly, or after ingestion is complete, or on demand when a user
+notices something wrong, will always be fighting a growing backlog of split
+entities. The identity server enforces deduplication at write time, before
+a duplicate node can be created, because the cost of preventing a split
+entity is much lower than the cost of merging two nodes that have
+accumulated relationships independently.
+
+The challenge is that deduplication at insertion time requires resolving
+mentions against the full current state of the identity database --
+checking not just whether this exact string has been seen before, but
+whether this mention, under any of its possible surface forms, refers to an
+entity already in the graph. This is the lookup chain.
+
+### The Lookup Chain
+
+The lookup chain\index{lookup chain} is a sequence of resolution strategies, ordered by cost,
+each handling the cases the prior stage cannot. A mention that resolves at
+an early stage costs less than one that falls through to a later stage.
+The ordering reflects that asymmetry: the cheapest strategy is attempted
+first, and subsequent strategies are invoked only when cheaper ones fail.
+
+**Exact match** is the first stage. The mention string is looked up
+verbatim in the synonym table -- the identity server's local database of
+canonical IDs and their associated surface forms. If the string appears in
+the table, the canonical ID is returned immediately. The cost is a single
+indexed database lookup. The stage handles all mentions that have been seen
+before in exactly this form, which, in a large corpus being processed
+incrementally, is the majority of cases.
+
+**Fuzzy match** is the second stage, reached when exact match fails. The
+mention string is compared against all known surface forms using a
+string-similarity metric -- the Graphwright implementation uses
+\texttt{rapidfuzz}\index{rapidfuzz}, which provides several metrics and is fast enough to
+scan a synonym table of tens of thousands of entries in milliseconds.
+A match above a configurable threshold is accepted as a synonym and the
+corresponding canonical ID is returned. This stage handles abbreviations,
+misspellings, and minor variations that differ from a known surface form
+by a small edit distance. "Sherlock Homes" resolves to Sherlock Holmes.
+"DDAVP" resolves to desmopressin if the synonym table has been seeded from
+the authoritative ontology.
+
+**Embedding similarity** is the third stage, reached when fuzzy match
+fails or produces no confident result. The mention string is embedded into
+a vector representation using the same embedding model the extraction
+pipeline uses, and that vector is compared against the stored embeddings
+of all known surface forms using \texttt{pgvector}\index{pgvector}'s approximate nearest
+neighbor search. This stage catches semantic equivalence that string methods
+miss: two surface forms that are not similar as strings but refer to the
+same concept will tend to cluster in embedding space. It is slower and
+more expensive than the prior stages, and it is reserved for cases they
+cannot handle.
+
+The ordering is deliberate, and worth stating explicitly: the chain is
+ordered by cost, not by sophistication. Embedding similarity is the most
+sophisticated method, but that is not why it is last. It is last because
+it is expensive, and because exact and fuzzy matching already handle the
+large majority of cases. Running embedding similarity on every mention
+would be correct but wasteful. Running it only when cheaper methods have
+failed is correct and efficient.
+
+**The authoritative ontology lookup** is the fourth stage, invoked when
+the local synonym table has no match at any confidence level. The domain
+service's \texttt{resolve-authority} endpoint is called with the mention
+string and entity type. The domain service queries the Baker Street Wiki,
+or whatever authority is configured for this domain, and returns a
+canonical ID if a match is found. If the AO lookup succeeds, the canonical
+ID is added to the local synonym table so that the same mention will resolve
+via exact match on all future encounters. If the AO lookup also fails, the
+mention is provisionally identified.
+
+This four-stage chain -- exact match, fuzzy match, embedding similarity,
+AO lookup -- handles the full range of resolution cases with costs
+proportional to difficulty. Simple cases are cheap. Hard cases are
+expensive. The distribution of cases in a typical corpus means the chain
+is fast in aggregate even when individual mentions fall through to the
+later stages.
+
+### Provisional Entities
+
+When the full lookup chain exhausts without a match, the identity server
+does not block. It mints a provisional entity\index{provisional entity}: a new graph node with
+a locally generated canonical ID, typed as specified by the extraction
+pipeline, and flagged as provisional in the identity database.
+
+The rationale for provisional entities rather than blocking is
+architectural. A pipeline processing a large corpus cannot wait for every
+entity to be resolved before proceeding. Some entities will not be
+resolvable at the time of their first encounter: the AO may not have an
+entry, the mention may be too ambiguous to match confidently, or the entity
+may be genuinely novel -- a name coined in this document that appears nowhere
+else. Blocking on these cases would stall the pipeline on a problem that
+may never be solvable. Minting a provisional entity allows the pipeline to
+continue, the relationship to be recorded, and the question of identity to
+remain open.
+
+Provisional entities are not second-class citizens of the graph. They carry
+full type constraints. Edges incident to them are valid. They accumulate
+evidence across multiple extraction runs. A provisional entity that appears
+in fifty documents, each of which extracts relationships involving it, has
+fifty sources of evidence even before it is promoted to canonical status.
+
+Promotion\index{promotion} occurs when the provisional entity accumulates enough evidence to
+warrant anchoring it to a canonical ID. The threshold is domain-configurable:
+a conservative domain might require a high evidence count and an AO match
+before promoting; a permissive domain might promote on the first confident
+AO lookup. When promotion occurs, the entity's local ID is replaced by the
+canonical ID, and all edges referencing the old ID are updated. Downstream
+systems are notified via the \texttt{on-entity-added} hook. The graph
+continues without re-ingestion.
+
+Merge\index{merge} is the related operation for the case where two provisional
+entities, or a provisional entity and a canonical one, are determined to
+be the same. Chapter 9 covers the merge operation and its interface in
+detail. The key property shared by promotion and merge is that the graph
+remains navigable throughout: at no point does a canonical ID reference an
+entity that no longer exists, and at no point does a merge produce a graph
+with dangling edges.
+
+### Provenance: Linking Every Triple to Its Source
+
+A triple without a source is not a claim. It is a rumor: an assertion that
+has been separated from the evidence that generated it, and that can
+therefore be neither confirmed nor corrected by inspecting that evidence.
+A knowledge graph built from extracted text is only as trustworthy as its
+ability to trace every edge back to the passage that produced it.
+
+Provenance\index{provenance} in the Holmes graph means that every edge carries a pointer
+to its origin: the story title, the chapter, and the specific passage from
+which the relationship was extracted. This is not optional metadata that
+can be added later if someone wants it. It is a structural requirement,
+enforced by the schema in the same way that domain and range constraints
+are enforced. An edge without provenance is rejected at insertion time, for
+the same reason that a type-invalid edge is rejected: because the graph's
+usefulness depends on this property holding for every edge, not just the
+ones someone remembered to annotate.
+
+The practical value of provenance operates on several levels. The most
+immediate is inspection: when a query returns a relationship that looks
+surprising or wrong, the provenance link tells the user exactly which
+passage produced it. The user can read the passage, assess whether the
+extraction was correct, and if not, flag the edge for correction without
+disturbing anything else in the graph. Errors are localizable to specific
+claims, not diffused across the graph's structure.
+
+The second level is confidence aggregation. The claim that Holmes suspects
+Irene Adler of concealing the photograph appears in one passage. The claim
+that Holmes considers her "the woman" -- his sole term of admiration -- is
+supported by multiple authorial observations across the story. These are
+not equally strong claims. Provenance makes it possible to count supporting
+passages and weight confidence accordingly: a claim backed by three
+independent passages is assigned higher confidence than one backed by one.
+Without provenance, the graph has no mechanism for this arithmetic. Every
+claim is equally unsupported.
+
+The third level is correction. When the Holmes schema is revised -- a
+predicate renamed, a type constraint tightened, a provisional type promoted
+or removed -- provenance makes it possible to audit the impact. A graph
+linter can enumerate every edge that used the old predicate, trace each to
+its source passage, and determine whether the passage actually supports a
+claim expressible under the new predicate. Schema evolution becomes
+manageable. Without provenance, schema revision means re-extracting and
+re-ingesting the entire corpus, because there is no way to know which edges
+are affected.
+
+### What `Moment` Enables for Provenance
+
+The Holmes corpus presents a provenance problem that a simple source
+pointer does not fully solve.
+
+Watson knows things at different times. A fact can be true throughout a
+story while remaining unknown to Watson -- and therefore unrecorded in his
+narration -- until a specific moment of revelation. In "The Adventure of
+the Empty House," Holmes reveals that he survived the struggle at
+Reichenbach Falls and has spent three years in hiding. This fact was true
+during the events of "The Final Problem." But Watson's narrative of those
+events records Holmes as dead, because Watson did not know otherwise. The
+graph, if it only records what Watson asserts and when he asserts it, will
+contain a contradiction: Holmes is dead (per Watson's account in "The Final
+Problem") and Holmes is alive (per Holmes's own account in "The Empty
+House").
+
+The `Moment`\index{Moment (entity type)} entity type exists to resolve this class of problem. A
+`Moment` is not a clock time. It is a named point in the epistemic
+timeline of the narrative: the moment at which a particular assertion
+became knowable to a particular narrator. A provenance record can include
+not just the source passage but the `Moment` associated with it: the point
+in the story's epistemic sequence at which this claim entered the
+narrator's knowledge.
+
+The assertion "Holmes is alive" can then be stored with two provenance
+records: one anchored to the `Moment` of Holmes's return in "The Empty
+House," at which point the claim becomes known; and one anchored to
+events that Holmes himself reports from his hidden years, which were true
+throughout but knowable only retrospectively. The graph does not collapse
+these into a single undated claim. It records the epistemics honestly:
+when was this known, by whom, and on what evidence.
+
+This is not a general-purpose mechanism for all knowledge graphs. Most
+domains do not have the deliberate narrative structure that makes the
+Holmes corpus epistemically complex in this way. `Moment` is a provisional
+type specific to this corpus, and its provisional status in the schema
+reflects exactly that: it carries full type constraints and participates
+normally in the graph, but it is flagged as domain scaffolding that may
+not transfer to other domains. The value of showing it here is not to
+argue that every graph needs a `Moment` type. It is to show what the
+schema can express when a domain's epistemics require it -- and that a
+typed graph with provenance has the vocabulary to represent this kind of
+complexity without collapsing it into noise.
 
 ## Chapter 7: Entity Lifecycle
 
