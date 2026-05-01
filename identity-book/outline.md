@@ -6,8 +6,6 @@
 
 ## Foreword: A Manifesto for Machine Knowledge
 
-*This foreword appears in all three volumes of the Graphwright series.*
-
 High-stakes reasoning requires things, not strings.
 
 Similarity is not identity. Retrieval is not reasoning.
@@ -36,12 +34,10 @@ truth is pursuable.
 
 ## Preface
 
-The two companion volumes -- *Knowledge Graphs from Unstructured Text* and
-*BFS-QL* -- both depend on canonical identity and a typed graph schema, but
-neither has room to fully explain them. This book is that explanation. It is
-about the infrastructure that makes a knowledge graph trustworthy: the service
-that ensures every entity is placed, every claim is sourced, every type
-constraint is enforced, and every merge is auditable.
+This book is the explanation of canonical identity: the infrastructure that
+makes a knowledge graph trustworthy -- the service that ensures every entity
+is placed, every claim is sourced, every type constraint is enforced, and every
+merge is auditable.
 
 The argument has three interlocking parts. First: canonical identity is the
 foundation -- every entity must be named unambiguously before anything else is
@@ -437,9 +433,10 @@ the Holmes schema; Parts III and IV show how the services handle it.*
 
 ### Chapter 17: What This Makes Possible
 
-- **The Three-Book Arc** -- *Knowledge Graphs from Unstructured Text* gets
-  knowledge in; this book makes it trustworthy; *BFS-QL* gets it out to an LLM;
-  the identity server and typed schema are the connective tissue.
+- **What This Architecture Enables** -- The identity server and typed schema
+  are the connective tissue: without canonical identity, the graph is a
+  collection of strings; without the typed schema, a collection of untyped
+  triples; without provenance, a collection of unsigned assertions.
 - **Cross-Domain Reasoning** -- Shared canonical IDs let two graphs built from
   different sources compose automatically; the typed schema ensures the
   composition is structurally coherent.
