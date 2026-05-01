@@ -2332,7 +2332,7 @@ paper asserts. These are candidate hypotheses, not established facts. The graph
 does not decide which are worth pursuing. It surfaces candidates that a human
 can filter, prioritize, and test.
 
-### An Invitation
+### The Epistemic Commons
 
 The epistemic commons -- MeSH, HGNC, RxNorm, UniProt, Wikidata, and the dozens
 of domain-specific authorities that curated communities have built over decades
@@ -2351,8 +2351,6 @@ sources behind every step.
 That is not a small thing. The extraction bottleneck that prevented this for
 fifty years is now broken. The infrastructure described in these three books is
 buildable today, with tools that exist, at a cost that is no longer prohibitive.
-The question is no longer whether it is possible. The question is what we build
-it for, and how carefully we build it.
 
 # Appendix A: Identity Server Specification
 
