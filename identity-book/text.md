@@ -11,8 +11,6 @@ lang: en
 
 `\markboth{Foreword}{Foreword}`{=latex}
 
-*This foreword appears in all three volumes of the Graphwright series.*
-
 Machine reasoning is being deployed in high-stakes domains: medicine, law,
 engineering, buildings and bridges. When mistakes are made in these domains,
 lives and livelihoods are threatened. Large language models (LLMs) are here,
@@ -108,7 +106,7 @@ without asking whether the names are spelled the same way.
 
 The practical problems this raises -- resolving synonyms, deduplicating
 mentions, extracting entity references from unstructured text, and maintaining
-provenance as the graph grows -- are the subject of these three books.
+provenance as the graph grows -- are the subject of this book.
 
 ### What We Win with Typed Graphs
 
@@ -178,16 +176,13 @@ and the possibility of correction.
 
 ## Preface
 
-The two companion volumes -- *Knowledge Graphs from Unstructured Text* and
-*BFS-QL: A Graph Query Protocol for Language Models* -- both depend on canonical
-identity but neither has room to fully explain it. The first book builds a
-knowledge graph from unstructured text. The second book serves that graph to a
-language model. Both books gesture at the identity server\index{identity server} and say "this is
-important" and then move on.
+This book is about canonical identity: the infrastructure that makes a
+knowledge graph trustworthy. It is about the service that ensures every entity
+is placed, every claim is sourced, every type constraint is enforced, and every
+merge is auditable.
 
-This book is what they are pointing at. The same ideas apply whenever
-structured data must be deduplicated or joined across sources -- not only when
-that data happens to be stored as a graph.
+The same ideas apply whenever structured data must be deduplicated or joined
+across sources -- not only when that data happens to be stored as a graph.
 
 Canonical identity is the difference between a collection of extracted facts and
 a knowledge graph that can be trusted. It is the difference between a node
@@ -2251,14 +2246,7 @@ builder is not.
 
 `\chaptermark{What This Makes Possible}`{=latex}
 
-### The Three-Book Arc
-
-*Knowledge Graphs from Unstructured Text*\index{Knowledge Graphs from Unstructured Text@\textit{Knowledge Graphs from Unstructured Text}} solves the extraction problem: how
-to read unstructured text at scale and produce structured, typed claims. *BFS-QL:
-A Graph Query Protocol for Language Models*\index{BFS-QL@\textit{BFS-QL}} solves the interface problem:
-how to serve those claims to a large language model (LLM)\index{large language model} in a form it can
-traverse and reason over. This book solves the problem that sits between them:
-how to ensure that what was extracted is trustworthy enough to reason from.
+### What This Architecture Enables
 
 The identity service and the typed schema are the connective tissue. The
 extraction pipeline calls the identity service to resolve every mention to a
@@ -2308,8 +2296,7 @@ data recall. When the graph is wrong, you fix the graph. You do not retrain the
 model. When the model's answer is surprising, you can trace the reasoning path
 through the graph edges and provenance records that informed it.
 
-This is the integration that *BFS-QL* describes from the query side. The
-trustworthiness that makes it worth doing is what this book has been about.
+The trustworthiness that makes it worth doing is what this book has been about.
 
 ### Hypothesis Generation
 
@@ -2349,7 +2336,7 @@ established, with the ability to follow chains of evidence and surface the
 sources behind every step.
 
 That is not a small thing. The extraction bottleneck that prevented this for
-fifty years is now broken. The infrastructure described in these three books is
+fifty years is now broken. The infrastructure described in this book is
 buildable today, with tools that exist, at a cost that is no longer prohibitive.
 
 # Appendix A: Identity Server Specification
