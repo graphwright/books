@@ -144,3 +144,179 @@ lives on instances and semantics live on types. The avoiding-reification
 insight follows directly: because edge instances are first-class objects with
 fields, there is nothing a reified statement node could express that an
 annotated edge cannot.
+
+---
+
+**Stand-alone graph linter to be used on in-memory graph before committing it to the database**
+
+Yeah, more on this later.
+
+---
+
+**Could entities be set up to use pydantic validation to confirm that entity_id has the correct prefix?**
+
+Yes, cleanly. Each entity subclass knows its own required prefix, so the validator lives on the subclass and needs no external lookup:
+
+```python
+from __future__ import annotations
+from typing import ClassVar
+from pydantic import BaseModel, model_validator
+
+
+class BaseEntity(BaseModel, frozen=True):
+    entity_id: str
+    name: str
+
+    expected_prefix: ClassVar[str] = ""  # subclasses override
+
+    @model_validator(mode="after")
+    def validate_id_prefix(self) -> BaseEntity:
+        if not self.expected_prefix:
+            return self  # abstract base, skip
+        prefix, _, local = self.entity_id.partition(":")
+        if not local:
+            raise ValueError(
+                f"{type(self).__name__} entity_id must have the form "
+                f"'{self.expected_prefix}:<local_name>', got '{self.entity_id}'"
+            )
+        if prefix != self.expected_prefix:
+            raise ValueError(
+                f"{type(self).__name__} entity_id must start with "
+                f"'{self.expected_prefix}:', got '{prefix}:'"
+            )
+        return self
+
+    @property
+    def type_prefix(self) -> str:
+        return self.entity_id.split(":")[0]
+
+
+class Person(BaseEntity):
+    expected_prefix: ClassVar[str] = "person"
+
+
+class Location(BaseEntity):
+    expected_prefix: ClassVar[str] = "location"
+
+
+class Moment(BaseEntity):
+    expected_prefix: ClassVar[str] = "moment"
+```
+
+So now these all raise at construction time with a clear message, before the linter ever runs:
+
+```python
+Person(entity_id="location:briony_lodge", name="Holmes")
+# ValueError: Person entity_id must start with 'person:', got 'location:'
+
+Person(entity_id="holmes", name="Holmes")
+# ValueError: Person entity_id must have the form 'person:<local_name>', got 'holmes'
+
+Person(entity_id="person:holmes", name="Holmes")
+# fine
+```
+
+This means the linter's `check_id_prefix_format` becomes a backstop for raw `BaseEntity` instances only — any properly typed entity can never reach the linter malformed. The two layers are complementary rather than redundant.
+
+
+There could be a field validator that adds the prefix if it's been omitted. Then you can write `entity_id="holmes"` and get `"person:holmes"` without ceremony, but a wrong prefix still raises:
+
+```python
+from __future__ import annotations
+from typing import ClassVar
+from pydantic import BaseModel, field_validator, model_validator
+
+
+class BaseEntity(BaseModel, frozen=True):
+    entity_id: str
+    name: str
+
+    expected_prefix: ClassVar[str] = ""
+
+    @field_validator("entity_id", mode="before")
+    @classmethod
+    def add_prefix_if_missing(cls, v: str) -> str:
+        if not cls.expected_prefix:
+            return v  # abstract base, nothing to do
+        if ":" not in v:
+            return f"{cls.expected_prefix}:{v}"
+        return v
+
+    @model_validator(mode="after")
+    def validate_id_prefix(self) -> BaseEntity:
+        if not self.expected_prefix:
+            return self
+        prefix, _, local = self.entity_id.partition(":")
+        if not local:
+            raise ValueError(
+                f"{type(self).__name__} entity_id must have the form "
+                f"'{self.expected_prefix}:<local_name>', got '{self.entity_id}'"
+            )
+        if prefix != self.expected_prefix:
+            raise ValueError(
+                f"{type(self).__name__} entity_id must start with "
+                f"'{self.expected_prefix}:', got '{prefix}:'"
+            )
+        return self
+
+    @property
+    def type_prefix(self) -> str:
+        return self.entity_id.split(":")[0]
+
+
+class Person(BaseEntity):
+    expected_prefix: ClassVar[str] = "person"
+
+
+class Location(BaseEntity):
+    expected_prefix: ClassVar[str] = "location"
+
+
+class Moment(BaseEntity):
+    expected_prefix: ClassVar[str] = "moment"
+```
+
+And now for relationships, domain/range validation becomes equally eager and self-contained -- no graph lookup, no linter needed for this check:
+
+```python
+class BaseRelationship(BaseModel, frozen=True):
+    subject_id: str
+    object_id: str
+
+    allowed_subject_prefixes: ClassVar[frozenset[str]] = frozenset()
+    allowed_object_prefixes: ClassVar[frozenset[str]] = frozenset()
+
+    @model_validator(mode="after")
+    def validate_domain_and_range(self) -> BaseRelationship:
+        subj_prefix = self.subject_id.partition(":")[0]
+        obj_prefix = self.object_id.partition(":")[0]
+
+        if self.allowed_subject_prefixes and subj_prefix not in self.allowed_subject_prefixes:
+            raise ValueError(
+                f"{type(self).__name__} subject must be one of "
+                f"{self.allowed_subject_prefixes}, got '{subj_prefix}'"
+            )
+        if self.allowed_object_prefixes and obj_prefix not in self.allowed_object_prefixes:
+            raise ValueError(
+                f"{type(self).__name__} object must be one of "
+                f"{self.allowed_object_prefixes}, got '{obj_prefix}'"
+            )
+        return self
+
+
+class PossessesAt(BaseRelationship):
+    allowed_subject_prefixes: ClassVar[frozenset[str]] = frozenset({"person"})
+    allowed_object_prefixes: ClassVar[frozenset[str]] = frozenset({"object"})
+
+    at_moment: str
+    confidence: float = 1.0
+
+
+class LocatedIn(BaseRelationship):
+    allowed_subject_prefixes: ClassVar[frozenset[str]] = frozenset({"object", "person"})
+    allowed_object_prefixes: ClassVar[frozenset[str]] = frozenset({"location"})
+```
+
+We could also add the same auto-prefix convenience to relationship IDs, but I'd hold off -- relationship endpoints reference externally-defined entities, so silently mutating them feels riskier than on entity construction where you know the type. Better to let the entity validator handle it at entity creation time and keep relationship validators strict.
+
+The linter's `check_domain_and_range` now becomes a true backstop only -- it would only fire for raw `BaseRelationship` instances or cases where someone bypassed Pydantic via `model_construct`. That's worth keeping but it's no longer the primary defense.
