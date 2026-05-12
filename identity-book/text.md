@@ -215,6 +215,70 @@ to be architectural, not aspirational.
 
 `\chaptermark{What a Typed Graph Is}`{=latex}
 
+### RDF: The Right Atoms, Uncontrolled Chemistry
+
+The Resource Description Framework\index{RDF} is the W3C standard for representing
+knowledge as linked data. Its central idea is the triple: a
+subject-predicate-object statement that is the smallest unit of structured
+knowledge that can stand alone, be stored, and be combined with other
+triples to form chains of inference. The global web of linked data --
+Wikidata,\index{Wikidata} DBpedia,\index{DBpedia} the Library of Congress authority files -- is built on
+this foundation. The foundation is sound.
+
+What RDF leaves uncontrolled is what can appear in each position of the
+triple. Any URI can be a subject. Any URI can be a predicate. Any URI or
+literal can be an object. There are no entity types -- a node carries no
+intrinsic information about what kind of thing it is beyond its OWL2\index{OWL2}
+properties. There is no constraint on predicates -- anyone can assert
+anything about anything. The result is a system with no gate on the
+vocabulary: category errors are not detectable, they are merely possible.
+
+RDF also has no first-class relationships. A triple asserts that a
+relationship exists, but the relationship itself is not an object the
+system can address. To attach metadata to a relationship -- provenance,
+confidence, a source citation -- requires reification: promoting the
+relationship to a node and attaching auxiliary triples to that node. The
+W3C\index{W3C} recognized the cost and produced RDF-star,\index{RDF-star} a standards-track extension
+adding quoted triples, precisely because standard reification had proved
+"verbose and cumbersome." The patch is real. The problem it patches is real.
+
+### Property Graphs: First-Class Relationships, Uncontrolled Vocabulary
+
+A property graph\index{property graph} -- the model used by Neo4j\index{Neo4j} and similar systems -- treats
+relationships as first-class citizens. A relationship has a type, a start
+node, an end node, and a set of properties stored directly on the
+relationship. Provenance, confidence, and evidence ride on the edge where
+they belong, without reification.
+
+What property graphs historically left to the application layer is
+everything RDF brought from the standards world: typed nodes, constrained
+predicates, domain and range declarations, canonical identifiers anchored
+to shared authorities. A property graph enforces nothing about what kinds
+of things can be connected by what kinds of relationships. The schema, if
+one exists, lives in application code or documentation, not in the graph
+itself. The vocabulary of relationships is open.
+
+Both models have something the other lacks. RDF has the organizing
+principles; property graphs have first-class relationships. The typed graph
+is the synthesis.
+
+### Why the Synthesis Matters
+
+The synthesis is not a theoretical exercise. Machine reasoning is being
+deployed in medicine, law, and civil engineering -- domains where a
+hallucination in a reasoning chain is a misdiagnosis, a missed precedent,
+or a structural failure. In those domains, provenance and traceability are
+not features. They are the minimum conditions under which automated
+reasoning can be trusted at all.
+
+RDF's open vocabulary and property graphs' absent schema both fail this
+test: neither provides a mechanism for detecting category errors before
+they enter the graph, and neither makes provenance a structural requirement
+rather than an optional annotation. The typed graph exists because
+high-stakes reasoning requires both. What follows in this chapter is the
+technical specification of a solution to a real problem -- not a design
+preference.
+
 ### Beyond the Triple
 
 The triple is a good idea. Subject, predicate, object: the smallest unit of
