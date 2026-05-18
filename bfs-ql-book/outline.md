@@ -339,14 +339,14 @@ about the design choices made here.
 
 ---
 
-## Appendix A: BFS-QL Reference
+# Appendix A: BFS-QL Protocol Reference
 
 The complete query format, response format, and LLM prompt template. Migrated
 and updated from *Knowledge Graphs from Unstructured Text* Appendix A, with the
 flattened query format (`node_types` and `predicates` as top-level arrays) and
 the addition of `describe_schema`.
 
-## Appendix B: Technical Background
+# Appendix B: Technical Background
 
 Short notes on the technical concepts this book's argument depends on, for
 readers who want the foundation without tracking down the original papers.
@@ -370,9 +370,7 @@ window is fast memory, expensive per byte, and the right design question is
 not "how much can we fit?" but "what does the model actually need right now?"
 BFS-QL's stub/full distinction is a working-set-aware answer to that question.
 
----
-
-## Relationship to *Knowledge Graphs from Unstructured Text*
+# Appendix C: Relationship to *Knowledge Graphs from Unstructured Text*
 
 That book is about building the graph. This book is about serving it. The
 `KGraphPostgresBackend` (Chapter 10) is the coupling point: kgraph writes
