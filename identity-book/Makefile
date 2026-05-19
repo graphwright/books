@@ -6,14 +6,14 @@ SRC := text.md
 STEM := text
 GEOMETRY := paperwidth=6in,paperheight=9in,top=0.75in,bottom=0.75in,inner=0.875in,outer=0.625in
 
-.PHONY: all clean cover-wrap
+.PHONY: all clean cover-wrap letter
 
 all: $(STEM).epub $(STEM).pdf
 
 clean:
-	rm -f $(STEM).epub $(STEM).pdf $(STEM).tex $(STEM).aux $(STEM).idx \
-	      $(STEM).ind $(STEM).ilg $(STEM).log $(STEM).out $(STEM).toc \
-	      cover.pdf $(SVG_PDFS)
+	rm -f $(STEM).epub $(STEM).pdf $(STEM)-letter.pdf $(STEM).tex \
+	      $(STEM).aux $(STEM).idx $(STEM).ind $(STEM).ilg $(STEM).log \
+	      $(STEM).out $(STEM).toc cover.pdf $(SVG_PDFS)
 
 %.pdf: %.svg
 	inkscape --export-filename=$@ $<
@@ -42,6 +42,21 @@ $(STEM).tex: $(SRC) $(ROOT)/index-header.tex $(ROOT)/index-footer.tex $(ROOT)/in
 	  --bibliography=references.bib \
 	  --metadata cover-image= \
 	  -o $(STEM).tex
+
+letter: $(SRC) $(IMAGES)
+	$(PANDOC) $(SRC) \
+	  -f markdown+raw_tex \
+	  --top-level-division=part \
+	  --toc \
+	  -V documentclass=book \
+	  -V fontsize=11pt \
+	  -V classoption=openany \
+	  -V geometry:"paperwidth=8.5in,paperheight=11in,margin=0.75in" \
+	  --include-in-header=$(ROOT)/index-header.tex \
+	  --include-after-body=$(ROOT)/index-footer.tex \
+	  --citeproc \
+	  --bibliography=references.bib \
+	  -o $(STEM)-letter.pdf
 
 cover-wrap: cover.yaml
 	$(ROOT)/make_cover_wrap.sh identity-book $(SPINE_INCHES)

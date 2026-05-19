@@ -16,8 +16,8 @@ substrate. Conflating those two roles is where most systems go wrong.
 RDF got the atoms right. It left the chemistry uncontrolled.
 
 A typed graph fixes the chemistry: a finite, closed vocabulary of entity
-types and predicates, each predicate with declared domain and range. What
-falls outside the vocabulary is inexpressible, not merely discouraged.
+types and predicates, each predicate with declared subject and object types.
+What falls outside the vocabulary is inexpressible, not merely discouraged.
 Category errors become detectable. Subtypes inherit constraints.
 
 Canonical IDs connect the graph to the edifice of human knowledge. Two
@@ -34,418 +34,394 @@ truth is pursuable.
 
 ## Preface
 
-This book is the explanation of canonical identity: the infrastructure that
-makes a knowledge graph trustworthy -- the service that ensures every entity
-is placed, every claim is sourced, every type constraint is enforced, and every
-merge is auditable.
+This book makes a single argument: that a graph of knowledge becomes
+trustworthy in proportion to how precisely it is typed.
 
-The argument has three interlocking parts. First: canonical identity is the
-foundation -- every entity must be named unambiguously before anything else is
-possible, and that naming anchors the graph to an epistemic commons built by
-expert communities over decades. Second: the graph must be typed -- a finite
-ontology of entity types and predicates, each predicate with a declared domain
-and range, makes certain classes of error structurally inexpressible rather
-than merely discouraged. Third: typing is what makes provenance a guarantee
-rather than a convention -- when the schema knows what a well-formed claim looks
-like, it can enforce that every claim carries its warrant.
+Type systems in programming languages were originally invented as tools for
+mathematical proof. They migrated into compilers not because mathematicians
+demanded it but because programmers kept making the same classes of mistakes --
+mistakes that a formal vocabulary of types makes structurally inexpressible.
+The same logic applies to graphs. A graph with a closed vocabulary of entity
+types and predicates, each predicate with a declared type signature, can
+reject a category error at write time rather than propagating it silently
+through every downstream query.
 
-Together these form a complete epistemology for machine-readable knowledge:
-naming (canonical identity), knowing (typed schema), and trusting (structural
-provenance). None of the three is sufficient alone.
+The Sherlock Holmes corpus is the primary worked example. Holmes is chosen
+deliberately: the stories contain disguises, false identities, unreliable
+narration, and time-shifted revelations. These stress-test a typed graph in
+ways a clean, well-curated corpus does not. Medical literature is the second
+domain -- structurally different, higher stakes, and anchored to established
+external ontologies.
+
+The book proceeds from abstract to concrete: a formal mathematical definition,
+a language-agnostic schema notation, a Python implementation, and then the
+services that make the graph operational at scale. Readers who work in other
+languages can engage fully with the first three parts and understand exactly
+what they would need to build.
 
 ---
 
-## Part I: The Typed Graph
+## Part I: The Case for Typed Graphs
 
 *The Sherlock Holmes corpus is the running example throughout this book.
-It is introduced in Chapter 2 and carried forward continuously -- not
-re-introduced at each part. A reader arriving at Part III already knows
-the Holmes schema; Parts III and IV show how the services handle it.*
+It is introduced in Chapter 1 and carried forward continuously -- not
+re-introduced at each chapter. A reader arriving at Part III already knows
+the Holmes schema.*
 
-### Chapter 1: What a Typed Graph Is
+### Chapter 1: Why Typed Graphs
 
-- **Beyond the Triple** -- RDF stores (subject, predicate, object) triples with
-  no constraints on what subject, predicate, or object may be; a typed graph
-  adds a finite enum of entity types and a finite vocabulary of predicates, each
-  predicate with a declared domain (allowed subject types) and range (allowed
-  object types).
-- **The Ontology as Contract** -- The schema is not documentation; it is a
-  machine-checkable contract governing every edge; contracts can be enforced,
-  documents cannot.
-- **Finite vs. Open-World** -- RDF/OWL operate under the open-world assumption:
-  if something is not asserted, it might still be true; a typed graph is
-  closed-world: predicates outside the schema do not exist; this is the source
-  of its expressive power, not a limitation.
-- **Category Error Detection** -- With domain and range declared, the system
-  can reject "aspirin treats BRCA1" at write time, not discover the mistake
-  at query time; structural validity is separable from factual correctness.
-- **Subtype Hierarchies** -- Entity types can form a DAG (not necessarily a
-  tree); a predicate whose domain includes `Animal` implicitly covers `Dog`;
-  the hierarchy lives in the schema, not in the graph.
-- **`PredicateSpec` and `EntityType`** -- Concrete representation: entity types
-  as a Python enum, predicates as frozen Pydantic models carrying domain, range,
-  and optional flags (`is_functional`, `negation_of`); the domain spec is the
-  single source of truth for all of this.
+**The Stakes**
+- Law, medicine, civil engineering: domains where errors cost lives and
+  livelihoods
+- The question: what does it take for machine reasoning to be trustworthy
+  in these domains?
+- The failure mode: retrieval systems that can't say where an answer came
+  from or whether the underlying claim is well-formed
 
-### Chapter 2: The Sherlock Domain
+**From RAG to Graph RAG to Typed Graphs**
+- Cosine similarity retrieval: powerful but opaque; no provenance, no
+  structure, no error-checking
+- Graph RAG: multi-hop reasoning becomes possible once knowledge has
+  structure
+- The remaining gap: where did this edge come from? is this triple even
+  well-formed?
+- The typed graph: guardrails built into the structure itself, not bolted
+  on afterward
 
-- **Why Holmes** -- The stories have deliberate epistemic complexity: disguises,
-  false identities, unreliable narration, time-shifted revelations; these
-  stress-test a typed graph in ways a clean biomedical corpus does not.
-- **Entity Types for the Holmes Corpus** -- `Person`, `Location`, `Object`,
-  `Event`, and two provisional types specific to this domain: `Moment` and
-  `ConfidenceLevel`.
-- **`Moment`: Time-Scoped Knowability** -- Some assertions in Holmes are true
-  but not yet knowable at a given point in the narrative; "Watson did not know
-  Holmes was alive until the moment of his return" -- the fact is true, but its
-  knowability is time-scoped; `Moment` is the entity type that anchors this;
-  it is not a universal type, it is scaffolding this corpus needs.
-- **`ConfidenceLevel`: Epistemic Status** -- Holmes operates on inference, not
-  certainty; a `ConfidenceLevel` entity marks how much to trust a claim in
-  the graph; again, domain-specific provisional scaffolding, not a general-purpose
-  type.
-- **Predicates Constructed by Hand** -- Extractions in this part are done
-  manually from canonical story passages; the point is graph structure and
-  schema design, not pipeline mechanics; the pipeline comes in Book Two.
-- **A Worked Schema** -- The Holmes `domain_spec.py` written out in full:
-  entity type enum, predicate list with domain/range, the two provisional types
-  with their rationale documented.
+**The Reasoning Layer Is Not the Extraction Layer**
+- A typed graph does not require an LLM to operate -- only to build
+- BFS on well-organized typed data is intrinsically useful regardless of
+  how the data got there
+- As extraction technology evolves (and it will), the graph remains the
+  stable substrate
+- The Raspberry Pi demonstration: pure BFS traversal, no cloud, no model,
+  answers a Sherlock Holmes question from a locally stored graph
+- This is future-proof reasoning infrastructure, not an LLM wrapper
 
-### Chapter 3: What the Schema Enforces
+**Type Systems and Category Errors**
+- The everyday intuition: apples and oranges; you can't compare them
+- Dimensional analysis in physics: meters + seconds is not merely wrong,
+  it is undefined -- the operation has no coherent meaning
+- Type systems in programming: the compiler catches category errors before
+  runtime, not after
+- What a category error looks like in a graph: a triple that violates a
+  predicate's type signature
+- "City treats Doctor" is a category error; "Aspirin treats Headache" is not
+- Predicates as two-argument functions: treats(subject: Drug, object: Disease)
+  -- the same concept as a function signature, applied to declared relationships
 
-- **Valid and Invalid Triples in the Holmes Graph** -- Concrete examples of
-  assertions accepted and rejected, and why; the schema as a filter at write
-  time.
-- **Provisional Types as First-Class Citizens** -- `Moment` and `ConfidenceLevel`
-  are flagged provisional in the schema; they carry full type constraints while
-  flagged; flagging records that the domain designers are not yet certain these
-  are the right abstractions.
-- **What the Schema Cannot Enforce** -- Structural validity is not factual
-  correctness; a well-typed claim can be wrong; the schema closes the
-  vocabulary, it does not adjudicate the world.
-- **The Closed-World Payoff** -- Because the predicate vocabulary is finite,
-  "this predicate does not appear in the graph" means something: either the
-  relationship does not exist or the corpus does not assert it; the ambiguity
-  is explicit, not silent.
+**A Brief Intellectual History of Type Systems**
+- Origins in mathematical logic: Russell's paradox, type theory as the remedy
+- Church's lambda calculus; the Curry-Howard correspondence (programs are proofs)
+- Types migrate into languages: Algol, Pascal, ML -- the compiler as enforcer
+- Algebraic types in Haskell and OCaml: making illegal states unrepresentable
+- Rust: ownership types encode resource safety at compile time
+- The general arc: from runtime crashes to compile-time guarantees
+- Mathematical types: dimensions in R, dtypes in NumPy -- types on data, not
+  just code
+- The through-line: a type system is a formal bet that certain errors cannot
+  occur; the bet is enforced by the structure, not by discipline
 
----
+**An Informal Definition of the Typed Graph**
+- A graph with a finite, closed vocabulary of entity types
+- Each predicate has a declared type signature: which subject types and object
+  types it connects
+- What falls outside the vocabulary is inexpressible, not merely discouraged
+- A brief tour of the seven components before the formalism arrives
+- Closed-world vs. open-world: in this model, absence means something
 
-## Part II: Canonical IDs and Authoritative Ontologies
+### Chapter 2: The Formal Definition
 
-### Chapter 4: What an Authoritative Ontology Is
-
-- **Strings vs. Things** -- Two mentions of "Holmes" in different passages are
-  the same entity; without a canonical ID, the graph has two nodes where there
-  should be one; canonical IDs are the mechanism for "this thing *is* that thing."
-- **What an AO Provides** -- A stable identifier, a canonical name, known
-  synonyms, and (often) a position in a taxonomic or relational structure;
-  anchoring to an AO means inheriting all of that for free.
-- **URIs as Stable Referents** -- The Wikipedia/Wikidata model: a URL is a
-  globally unique, dereferenceable identifier for a thing; two graphs that
-  anchor to the same URI agree on the referent without any coordination.
-- **Domains Without Official AOs** -- Medicine has MeSH, RxNorm, HGNC, UniProt;
-  the Holmes corpus has no official ontology; this is the common case for
-  non-scientific domains; the system must handle both.
-
-### Chapter 5: The Baker Street Wiki as Domain AO
-
-- **Assessment of Fitness** -- Coverage (does it have an entry for every named
-  entity in the stories?), stability (are URLs permanent?), URL structure
-  (are URLs clean enough to use as IDs?); the Baker Street Wiki
-  (bakerstreet.fandom.com) assessed on all three.
-- **Using Wiki Page URLs as Canonical IDs** -- A Holmes entity gets the URL of
-  its Baker Street Wiki page as its canonical ID; no external service needed;
-  the AO is a static resource the domain service can query.
-- **Synonym Resolution via the AO** -- "Holmes," "Sherlock," "Mr. Holmes,"
-  "the detective" all resolve to the same canonical ID; the wiki's redirect
-  structure and alias lists do this work.
-- **Entities the Wiki Doesn't Cover** -- Minor characters, invented objects,
-  unnamed locations; these become provisional entities with locally minted IDs;
-  the system continues to function.
-
-### Chapter 6: Deduplication and Provenance
-
-- **Deduplication as Graph Hygiene** -- The same entity appearing under multiple
-  surface forms is the most common source of graph corruption; deduplication is
-  not a cleanup step, it is a structural requirement.
-- **The Lookup Chain** -- Multi-stage resolution: exact match against AO,
-  fuzzy match (rapidfuzz), embedding similarity (pgvector); each stage handles
-  what the prior stage cannot; the chain is ordered by cost, not by sophistication.
-  *Why this ordering:* exact match is free and definitive; fuzzy match catches
-  abbreviations and typos cheaply; embedding similarity is expensive and reserved
-  for semantic equivalence that string methods miss.
-- **Provisional Entities** -- When no AO match exists, mint a local ID and flag
-  it provisional; provisional IDs are valid graph nodes; relationships
-  referencing them are valid; promotion later does not require re-ingestion.
-  *Why provisional rather than blocking:* the graph must be functional before all
-  identities are known; blocking on unresolved entities would stall ingestion.
-- **Provenance: Linking Every Triple to Its Source** -- Every edge in the Holmes
-  graph carries a pointer to the passage it was extracted from (story title,
-  chapter, paragraph); this is not optional metadata, it is a structural
-  requirement; a claim without a source is not a claim, it is a rumor.
-- **What `Moment` Enables for Provenance** -- A provenance record can include
-  the `Moment` at which the assertion became knowable; "Holmes is alive" is
-  true throughout *The Final Problem* but not knowable to Watson until
-  *The Adventure of the Empty House*; the graph records both.
+- Why formalism? Math is the most precise language for specifying exactly what
+  a typed graph is and is not
+- Acknowledging that programmers find math off-putting -- and why the rigor
+  is worth it anyway; the definition is short
+- The seven-tuple $(T_V,\ T_E,\ \Phi,\ V,\ E,\ \tau_V,\ \tau_E)$ --
+  each component named and motivated
+  - $T_V$: finite set of entity types
+  - $T_E$: finite set of predicate types
+  - $\Phi$: field schema assignment for each type
+  - For each predicate: subject types, object types, trait set
+  - $V$: entity instances; $E$: directed typed edge instances
+  - $\tau_V$, $\tau_E$: type assignment functions
+- Validity constraints: subject/object type conformance; schema conformance
+- Trait vocabulary: Symmetric, Transitive, Functional, InverseFunctional,
+  Inverse(p'), Rule(φ ⇒ ψ) -- what each means, why it belongs to the
+  predicate type rather than to any edge instance
+- A worked example: a small Holmes graph verified against the definition
+  - One valid triple shown as an instance of each component
+  - One invalid triple and where in the definition it fails
+- What the formal definition does not guarantee: structural well-formedness
+  is not factual correctness; a well-typed claim can still be wrong
 
 ---
 
-## Part III: The Identity Service
+## Part II: The Schema
 
-### Chapter 7: The Problem the Identity Service Solves
+*The schema is the bridge between the mathematical definition and running
+code. Chapter 3 presents it in a language-agnostic notation; Chapter 4
+shows one concrete realization in Python. The same Holmes schema appears
+in both chapters so the relationship is explicit.*
 
-- **Extraction Produces Mentions, Not Entities** -- The extraction pipeline
-  yields strings; the graph needs nodes with canonical IDs; the identity service
-  is the bridge.
-- **Why a Service, Not a Library** -- Multiple pipeline workers running in
-  parallel must not mint duplicate IDs for the same entity; a service with a
-  database and advisory locking is the standard solution to concurrent writes;
-  a library cannot enforce cross-process uniqueness.
-- **The Identity Service as a Black Box to the Pipeline** -- The pipeline
-  sends (mention string, entity type) and receives a canonical ID; it does not
-  know or care about the lookup chain, the AO, or the deduplication logic.
+### Chapter 3: The Schema Definition Language
 
-### Chapter 8: Architecture and Design Rationale
+- Why language-agnostic? The typed graph concept is independent of Python,
+  Rust, or TypeScript; the same schema document should be usable in all of them
+- The schema document as a language: YAML as the notation
+- Precedent: Protocol Buffers, Thrift, GraphQL SDL -- write the schema once,
+  generate bindings for each language; the difference here is that the schema
+  is a graph vocabulary, not a message format
+- The Holmes schema written out in full:
+  - `node_types` -- the entity type vocabulary
+  - `edge_types` -- the predicate vocabulary, each with `subject_types`,
+    `object_types`, and optional traits
+  - `trait_groups` -- temporal, epistemic, provenance properties; which apply
+    to nodes, which to edges
+- Walking through each section as a direct instance of the seven-tuple components
+- Valid and invalid triples demonstrated against the schema
+- What the schema enforces vs. what it deliberately leaves open: factual
+  correctness is outside the contract
+- The closed-world payoff: "this predicate does not appear" means something;
+  the ambiguity is explicit, not silent
+- Provisional types: flagged in the schema; they carry full constraints while
+  flagged; the flag records that the domain designers are not yet certain
+  these are the right abstractions
 
-- **Domain-Agnostic Core** -- The deduplication state machine, the lookup chain
-  orchestration, idempotency guarantees, Postgres locking, and pgvector
-  similarity search are all domain-independent; they live in the base server.
-  *Why:* a base server that ships without domain knowledge can be reused across
-  domains without modification; domain logic that leaks into the core creates
-  maintenance debt.
-- **The Plugin Contract** -- The domain service implements four endpoints the
-  base server calls: authority lookup, synonym criteria, survivor selection,
-  confidence weighting.
-  *Why four and not more or fewer:* these are the four decisions that vary by
-  domain; everything else is mechanics; keeping the surface small makes the
-  contract auditable and the domain service easy to implement.
-- **Advisory Locking in Postgres** -- Concurrent resolve requests for the same
-  mention must not produce two canonical IDs; Postgres advisory locks provide
-  per-entity mutual exclusion without a separate lock service.
-  *Why advisory locks rather than transactions:* the operation spans multiple
-  queries (lookup, insert-if-missing, return ID); a single transaction would
-  hold locks too long under load; advisory locks are scoped to the logical
-  operation.
-- **Entity Lifecycle: Three Statuses** -- Provisional (unresolved), canonical
-  (authority-anchored), merged (absorbed into another entity); transitions are
-  one-way and logged.
-  *Why immutable status transitions:* a merged entity that could be un-merged
-  would invalidate every edge that referenced the survivor; immutability makes
-  the provenance audit trail trustworthy.
-- **Idempotency** -- All operations are safe to retry; ingestion pipelines
-  fail and restart; an identity service that produces different results on retry
-  corrupts the graph.
-  *Why idempotency is non-negotiable:* distributed systems fail; the choice is
-  between idempotent operations and a graph that requires manual repair after
-  every failure.
-- **Caching** -- Two layers: an LRU cache in the identity server keyed on
-  `(mention, entity_type)` for resolved IDs; a long-TTL cache in the domain
-  service for AO API responses.
-  *Why two layers:* the identity server cache avoids redundant lookups within
-  a run; the domain service cache avoids hitting external APIs for the same
-  entity repeatedly across runs; `compute-confidence` is not cached because
-  its inputs vary per call and the computation is cheap.
+### Chapter 4: A Python Binding
 
-### Chapter 9: The Identity Service HTTP Interface
-
-- **`POST /resolve`** -- Given (mention, entity_type), return canonical ID;
-  the primary operation; runs the full lookup chain.
-  *Why POST:* the operation has side effects (minting provisional IDs, updating
-  the synonym table); GET would be misleading.
-- **`POST /promote`** -- Elevate a provisional entity to canonical when evidence
-  threshold is met; caller supplies the canonical ID to assign.
-  *Why caller-supplied ID:* the domain service, not the identity server, knows
-  which authority ID to use; the identity server records the transition.
-- **`POST /merge`** -- Declare two entities the same; survivor selection picks
-  the canonical record; provenance from both is preserved.
-  *Why an explicit merge operation rather than automatic deduplication:* merges
-  are irreversible; requiring an explicit call means a human or a high-confidence
-  rule triggered it, not a fuzzy match that was close but wrong.
-- **`GET /entity/{id}`** -- Retrieve full entity record including status, all
-  known surface forms, provenance, and confidence.
-- **`GET /schema`** -- Return the domain spec as JSON; the base server calls
-  this at startup to load predicate vocabulary and type constraints.
-  *Why served by the domain service, not the identity server:* the schema is
-  domain knowledge; the identity server is domain-agnostic; the schema travels
-  with the domain service.
+- The schema document is the source of truth; Python is one materialization of it
+- `NodeType` and `EdgeType` as `StrEnum` base classes with no members; domain
+  schemas subclass these to add their vocabulary
+- Why empty base enums? `isinstance` checks, mypy type narrowing, and
+  `GraphSchema` can store the enum class itself rather than a frozenset of strings
+- `BaseEntity` and `BaseRelationship`: frozen Pydantic models, abstract
+  `get_entity_type()` and `get_edge_type()`
+- `DomainSchema`: the abstract class a domain implements; what it must declare
+- `PredicateConstraint`: the Python representation of a predicate's type signature
+- Why frozen Pydantic? Immutability as a structural principle, not a style
+  preference; edge instances are facts, not mutable records
+- `HolmesNodeType`, `HolmesEdgeType`, `HolmesDomain`: the Holmes schema
+  in Python, derived visibly from the YAML in Chapter 3
+- Domain-specific edge subclasses: adding typed fields for provenance, evidence,
+  epistemic status; the base carries structural fields, the subclass adds semantic ones
+- Running valid and invalid triples against the Python implementation; the same
+  examples from Chapter 3 produce the expected results
 
 ---
 
-## Part IV: The Domain Service
+## Part III: Domains in Practice
 
-### Chapter 10: `domain_spec.py` as the Single Source of Truth
+*Two worked domains that differ structurally: Holmes, a narrative/epistemic
+domain with deliberate uncertainty; medical literature, a high-stakes domain
+with established external ontologies and evidence grading. The contrast
+demonstrates what the schema language handles uniformly and what varies
+by domain.*
 
-- **What the Domain Service Owns** -- The entity type enum, the predicate list
-  with domain/range, the AO lookup logic, the synonym thresholds, the survivor
-  selection rules, the confidence weight table; all domain-specific, none of it
-  in the base server.
-- **Python as the Spec Language** -- The domain spec is a Python module, not a
-  config file; it can express logic (not just data), it is testable, and it
-  round-trips to JSON for the `GET /schema` endpoint.
-  *Why not YAML or JSON:* config files cannot express the validation logic that
-  makes the spec useful; a Python module can define the enum, the Pydantic
-  models, and the validation functions in one place.
-- **The Holmes Domain Spec Written Out** -- Full `domain_spec.py` for the Holmes
-  corpus: `EntityType` enum including `Moment` and `ConfidenceLevel` flagged
-  provisional, all predicates with domain/range, the AO configuration pointing
-  to the Baker Street Wiki.
+### Chapter 5: Medical Literature -- A Second Domain
 
-### Chapter 11: The Domain Service HTTP Interface
+- Why medicine as the second domain: high stakes, well-established ontologies,
+  structurally different from Holmes in ways that test the schema language's
+  generality
+- UMLS, MeSH, RxNorm, HGNC, UniProt: authoritative ontologies as canonical
+  ID sources; what each covers
+- The medlit schema: entity types (Disease, Drug, Gene, Protein, ...),
+  predicate vocabulary, predicate constraints
+- Evidence and provenance as first-class fields on edges -- required by the
+  domain, not optional metadata; a medical claim without a citation is not
+  a claim
+- `EvidenceLevel`, `AssertionType`: domain-specific enums that extend the
+  base layer without modifying it
+- Comparing Holmes and medlit: entity types differ, predicate vocabularies
+  differ, evidence requirements differ; the schema language, `BaseEntity`,
+  `BaseRelationship`, and `DomainSchema` are identical
+- The schema language earns its generality by handling both without
+  modification
 
-- **`POST /resolve-authority`** -- Given (mention, entity_type), query the AO
-  and return a canonical ID if found, or null if not.
-  *Why the domain service owns this:* which AO to query, in what order, with
-  what fallbacks is entirely domain knowledge; the base server has no opinion.
-- **`POST /select-survivor`** -- Given two entity records, return the one that
-  should survive a merge.
-  *Why a POST with full records rather than just IDs:* the survivor selection
-  rule may depend on evidence count, confidence, or source type -- fields that
-  live on the record, not inferable from the ID alone.
-- **`POST /compute-confidence`** -- Given a list of evidence records, return a
-  composite confidence score.
-  *Why the domain service computes this:* the weight table (how much to trust
-  an eyewitness account vs. a newspaper report vs. Holmes's own deduction) is
-  domain knowledge; the base server provides the aggregation call, the domain
-  service provides the weights.
-- **`GET /synonym-criteria`** -- Return the thresholds and rules the identity
-  server should use when deciding whether two mentions are synonyms.
-  *Why a GET:* this is configuration, not a stateful operation; it changes only
-  when the domain spec changes; the identity server fetches it at startup.
-- **`GET /schema`** -- Serve the full domain spec as JSON.
-  *Why this belongs here:* the schema is part of the domain service's contract
-  with the base server and with the graph linter; centralizing it here means
-  one source of truth. *Why a GET and not pushed at startup:* the base server
-  pulls the schema when it starts, and can re-pull if it detects a version
-  change; push would require the domain service to know the base server's
-  address, inverting the dependency.
+---
 
-### Chapter 12: Validation and the Lifecycle
+## Part IV: Canonical Identity  *(rough -- fill in later)*
 
-- **How a Proposed Triple Is Accepted or Rejected** -- Walk through the
-  validation pipeline: entity type check, predicate vocabulary check,
-  domain/range check, provenance completeness check; each gate and its rationale.
-- **Type Constraints Across the Entity Lifecycle** -- Entity type is assigned
-  at creation and immutable; merging is only permitted between entities of the
-  same type; type mismatches surface at promotion time.
-  *Why immutable types:* if an entity's type could change, every edge incident
-  to it would need re-validation; immutability makes type checking a one-time
-  cost at creation.
-- **When the Ontology Changes** -- Deprecated predicates are flagged, not
-  deleted; tightened constraints produce migration items; predicate renaming is
-  deprecate-old plus introduce-new with an explicit migration script; the domain
-  spec carries a version field.
-  *Why deprecate rather than delete:* existing edges referencing a deleted
-  predicate become uninterpretable; deprecation keeps the audit trail intact
-  while signaling that new edges should not use the old predicate.
+### Chapter 6: Strings vs. Things
 
-### Chapter 13: The Graph Linter
+- Two mentions of "Holmes" in different passages are the same entity; without
+  a canonical ID, the graph has two nodes where there should be one
+- What an authoritative ontology provides: stable identifier, canonical name,
+  known synonyms, position in a taxonomic structure; anchoring to one means
+  inheriting all of that
+- URIs as stable referents: the Wikipedia/Wikidata model; two graphs that
+  anchor to the same URI agree on the referent without coordination
+- Domains without official AOs: medicine has MeSH, RxNorm, HGNC, UniProt;
+  the Holmes corpus has no official ontology; the common case for non-scientific
+  domains; the system must handle both
+- The Baker Street Wiki as domain AO: assessed on coverage, stability, and
+  URL structure; wiki page URLs as canonical IDs
+- Synonym resolution via the AO: redirect structure and alias lists
+- Entities the wiki doesn't cover: provisional entities with locally minted IDs;
+  the graph continues to function
 
-- **Two Enforcement Points** -- The insertion path enforces constraints at write
-  time; the linter audits the graph independently, after the fact; Unix
-  philosophy: do one thing well, compose with everything else; both roles are
-  worth having.
-  *Why a separate linter rather than insertion-time checking alone:* insertion
-  checks protect against new bad data; the linter can audit data that predates
-  stricter constraints, catches cross-edge consistency issues that are invisible
-  at single-write time, and acts as a CI gate on ingestion batches.
-- **What the Linter Checks** -- Predicate vocabulary violations, domain/range
+### Chapter 7: The Identity Server
+
+- Extraction produces mentions, not entities; the identity server is the bridge
+- Why a service, not a library: concurrent writes, cross-process uniqueness
+- Entity lifecycle: provisional → canonical → merged; transitions are one-way
+  and logged; immutable transitions make the provenance audit trail trustworthy
+- The lookup chain: exact match, fuzzy (rapidfuzz), embedding similarity
+  (pgvector) -- ordered by cost, not by sophistication
+- Provisional entities: valid graph nodes while unresolved; promotion later
+  does not require re-ingestion
+- Advisory locking in Postgres: per-entity mutual exclusion without a separate
+  lock service; why advisory locks rather than transactions
+- Idempotency: all operations safe to retry; a service that produces different
+  results on retry corrupts the graph
+- Caching: LRU cache in the identity server; long-TTL cache in the domain
+  service for AO API responses
+- The identity server HTTP interface: `/resolve`, `/promote`, `/merge`,
+  `/entity/{id}`, `/schema`
+
+### Chapter 8: The Domain Service
+
+- What the domain service owns: entity type enum, predicate list, AO lookup
+  logic, synonym thresholds, survivor selection, confidence weights; all
+  domain-specific, none of it in the base server
+- Python as the spec language: the domain spec is a module, not a config
+  file; it can express logic, it is testable, it round-trips to JSON
+- The Holmes `domain_spec.py` written out in full
+- The plugin contract: four endpoints the base server calls -- authority
+  lookup, synonym criteria, survivor selection, confidence weighting;
+  these are the four decisions that vary by domain; everything else is mechanics
+- The domain service HTTP interface: `/resolve-authority`, `/select-survivor`,
+  `/compute-confidence`, `/synonym-criteria`, `/schema`
+- When the ontology changes: deprecate rather than delete; tightened
+  constraints produce migration items; the domain spec carries a version field
+
+### Chapter 9: Validation and the Graph Linter
+
+- Two enforcement points: insertion-time validation and post-hoc linting;
+  both roles are worth having
+- Why a separate linter: audits data that predates stricter constraints;
+  catches cross-edge consistency issues invisible at single-write time;
+  acts as a CI gate on ingestion batches
+- What the linter checks: predicate vocabulary violations, subject/object type
   violations, missing provenance, unresolvable canonical IDs, unacknowledged
-  contradictions; each check derived from the domain spec at runtime, not
-  hardcoded; adding a predicate to the spec automatically extends lint coverage.
-- **Violation Structure** -- Each violation is a typed, structured record:
-  violation type, severity (ERROR / WARNING / INFO), affected edge or entity,
-  human-readable message, suggested remediation; output is JSONL for piping
-  into dashboards or CI.
-- **The Linter in CI** -- An ingestion batch linted before it lands; violations
-  above a severity threshold fail the batch; the linter is a compiler pass
-  for the graph.
-- **Conflict Records as First-Class Data** -- When the linter finds a
-  contradiction, it does not reject the edge; it emits a conflict record;
-  the graph is richer for containing the dispute; contradiction is information,
-  not failure.
+  contradictions; each check derived from the domain spec at runtime
+- Violation structure: typed, structured records with severity (ERROR /
+  WARNING / INFO), affected edge or entity, suggested remediation; JSONL output
+- Conflict records as first-class data: when the linter finds a contradiction
+  it emits a conflict record; the graph is richer for containing the dispute;
+  contradiction is information, not failure
+- The linter as a compiler pass for the graph
 
 ---
 
 ## Part V: Trustworthiness
 
-### Chapter 14: Provenance as Architecture
+### Chapter 10: Provenance as Architecture
 
-- **Provenance Is Not Optional** -- In high-stakes domains, every claim must be
-  traceable to its source; this is a structural requirement, not a feature.
-- **What a Provenance Record Contains** -- Source document, passage locator,
-  extraction method, confidence, timestamp; the full audit trail for any claim.
-- **Confidence Is Computed, Not Assigned** -- Confidence derives from evidence
-  quality (how strong is the source?) and evidence count (how many independent
-  sources agree?); the domain service supplies the weight table; the base server
-  aggregates; neither guesses.
-- **Multi-Source Claims** -- The same relationship appearing in multiple
-  independent sources is stronger than one appearing once; the identity server
-  aggregates evidence and computes a defensible composite confidence.
-- **Typed Provenance** -- Because predicates are finite and typed, provenance
-  completeness is checkable: every edge of a known predicate type must carry a
-  provenance record; the schema defines what "complete" means, so incompleteness
-  is detectable.
+- Provenance is not optional: in high-stakes domains, every claim must be
+  traceable to its source; this is a structural requirement, not a feature
+- What a provenance record contains: source document, passage locator,
+  extraction method, confidence, timestamp; the full audit trail for any claim
+- Confidence is computed, not assigned: evidence quality (how strong is the
+  source?) and evidence count (how many independent sources agree?);
+  the domain service supplies the weight table; the base server aggregates
+- Multi-source claims: independent agreement strengthens confidence;
+  the identity server aggregates evidence and computes a defensible composite
+- Typed provenance: because predicates are finite and typed, provenance
+  completeness is checkable; the schema defines what "complete" means, so
+  incompleteness is detectable
 
-### Chapter 15: Making Bad Ideas Inexpressible
+### Chapter 11: Making Bad Ideas Inexpressible
 
-- **Hilbert's Dream** -- Hilbert wanted a formal system where false or
-  meaningless statements could not be constructed. Gödel showed this is
-  impossible for mathematics in general. For a domain-constrained typed graph
-  it is achievable: the finite predicate set is the boundary Hilbert wanted.
-- **What Becomes Inexpressible** -- Type-layer violations (wrong entity type
-  for a predicate's domain/range); identity-layer violations (edges to
-  unresolvable IDs); provenance-layer violations (claims without a source);
-  consistency-layer violations (contradictions without a conflict record).
-- **The Functional Programming Analogy** -- ML, Haskell, and Rust enforce
-  "make illegal states unrepresentable"; invariants live in the type system,
-  not in runtime checks; a typed graph applies the same principle to assertions.
-- **The Limits: Gödel's Revenge** -- The typed graph enforces structural
-  well-formedness, not factual correctness; a well-typed, well-sourced edge
-  can still be wrong; this is not a defect, it is the honest boundary of what
-  formal structure can guarantee.
+- Hilbert's dream: a formal system where false or meaningless statements could
+  not be constructed; Gödel showed this is impossible for mathematics in general
+- For a domain-constrained typed graph it is achievable: the finite predicate
+  set is the boundary Hilbert wanted
+- What becomes inexpressible: type-layer violations (wrong entity type for a
+  predicate's signature); identity-layer violations (edges to unresolvable IDs);
+  provenance-layer violations (claims without a source); consistency-layer
+  violations (contradictions without a conflict record)
+- The functional programming analogy: ML, Haskell, and Rust enforce "make
+  illegal states unrepresentable"; invariants live in the type system, not in
+  runtime checks; a typed graph applies the same principle to assertions
+- Gödel's honest boundary: the typed graph enforces structural well-formedness,
+  not factual correctness; a well-typed, well-sourced edge can still be wrong;
+  this is not a defect, it is the honest limit of what formal structure can
+  guarantee
 
 ---
 
 ## Closing
 
-### Chapter 16: Bias, Limits, and Responsibility
+### Chapter 12: Bias, Limits, and Responsibility
 
-- **What the Graph Cannot Know** -- Coverage gaps create false negatives;
-  absence of evidence is not evidence of absence; the system cannot correct
-  for what was never ingested.
-- **Bias Encoded at Scale** -- The corpus determines what the graph knows;
-  selection bias, language bias, and recency bias propagate into the graph
-  and are amplified by confidence weighting; the builder is responsible for
-  knowing this.
-- **What Typed Structure Cannot Guarantee** -- Structural well-formedness is
-  not factual correctness; a well-typed, well-sourced claim can still be wrong;
-  the graph records disputes, it does not adjudicate them.
-- **Capability Is Not Bounded by Intent** -- A system that encodes the
-  architecture of expertise enables inferences its builders didn't anticipate;
-  structure supports inference; inference doesn't respect intended use case
-  boundaries.
-- **The Builder's Responsibility** -- Honesty about coverage limits;
-  infrastructure for verification; consideration of foreseeable misuse;
-  trustworthiness is an ongoing commitment, not a one-time design choice.
-- **Who Owns the Graph** -- Open versus proprietary carries consequences for
-  the commons; GenBank (open, shaped a field) vs. contested clinical trial data;
-  the governance question is worth answering before it is decided for you.
+- What the graph cannot know: coverage gaps create false negatives; absence
+  of evidence is not evidence of absence; the system cannot correct for what
+  was never ingested
+- Bias encoded at scale: selection bias, language bias, and recency bias
+  propagate into the graph and are amplified by confidence weighting;
+  the builder is responsible for knowing this
+- Structural well-formedness is not factual correctness: the graph records
+  disputes, it does not adjudicate them; the schema is a filter, not a judge
+- Capability is not bounded by intent: a system that encodes the architecture
+  of expertise enables inferences its builders did not anticipate; structure
+  supports inference; inference does not respect intended-use-case boundaries
+- The builder's responsibility: honesty about coverage limits; infrastructure
+  for verification; consideration of foreseeable misuse; trustworthiness is an
+  ongoing commitment, not a one-time design choice
+- Who owns the graph: open vs. proprietary carries consequences for the commons;
+  GenBank (open, shaped a field) vs. contested clinical trial data; the
+  governance question is worth answering before it is decided for you
 
-### Chapter 17: What This Makes Possible
+### Chapter 13: What This Makes Possible
 
-- **What This Architecture Enables** -- The identity server and typed schema
-  are the connective tissue: without canonical identity, the graph is a
-  collection of strings; without the typed schema, a collection of untyped
-  triples; without provenance, a collection of unsigned assertions.
-- **Cross-Domain Reasoning** -- Shared canonical IDs let two graphs built from
+- The typed schema and canonical identity are connective tissue: without
+  canonical identity the graph is a collection of strings; without the typed
+  schema, a collection of untyped triples; without provenance, a collection
+  of unsigned assertions
+- Cross-domain reasoning: shared canonical IDs let two graphs built from
   different sources compose automatically; the typed schema ensures the
-  composition is structurally coherent.
-- **Grounding LLM Inference** -- Typed, provenance-tracked claims from the graph
-  rather than training-data recall; the difference in reliability is qualitative,
-  not quantitative.
-- **Hypothesis Generation** -- Traverse the graph to surface candidates that no
-  single source asserts but that follow from combining multiple sources; the
-  graph narrows the space of possibilities for human evaluation.
-- **An Invitation** -- The epistemic commons was built over decades for human
-  use; the typed graph makes it available to machines in a form that carries its
-  own warrant. That is not a small thing.
+  composition is structurally coherent
+- Grounding LLM inference: typed, provenance-tracked claims from the graph
+  rather than training-data recall; the difference in reliability is
+  qualitative, not quantitative
+- Hypothesis generation: traverse the graph to surface candidates that no
+  single source asserts but that follow from combining multiple sources;
+  the graph narrows the space of possibilities for human evaluation
+- An invitation: the epistemic commons was built over decades for human use;
+  the typed graph makes it available to machines in a form that carries its
+  own warrant; that is not a small thing
+
+---
+
+## Appendix A: Formal Definition Reference
+
+Quick-reference card for the seven-tuple $(T_V,\ T_E,\ \Phi,\ V,\ E,\ \tau_V,\ \tau_E)$,
+validity constraints, and trait vocabulary. Suitable for use alongside
+later chapters without re-reading Chapter 2.
+
+## Appendix B: Non-Goals
+
+What this model is not, and why the distinction matters:
+
+- **Not RDF/OWL.** In RDF, predicates are URIs and are themselves nodes; the
+  graph is a flat set of triples with no first-class edge objects. OWL adds
+  description logic and open-world assumption. This model is a closed-world
+  property graph with typed, field-bearing edge instances. The distinction
+  matters especially for reification: RDF requires it, this model eliminates it.
+- **Not Neo4j's informal property graph.** Neo4j allows arbitrary key-value
+  properties on edges without schema enforcement. This model requires a declared
+  field schema and enforced subject/object type constraints.
+- **Not an entity-relationship diagram.** ER diagrams are a database design
+  tool. This is a runtime knowledge representation with provenance, epistemic
+  scope, and trait-based inference semantics.
+- **Not a general ontology language.** This model does not support open-world
+  reasoning, class hierarchies, disjointness axioms, or the full OWL trait
+  vocabulary. If a use case seems to require full description logic, that is
+  scope creep.
+
+## Appendix C: The Holmes Schema Reference
+
+Full Holmes schema in both YAML (schema definition language) and Python
+(kgschema binding): entity types, predicates with type signatures, traits,
+and rationale for provisional types. Canonical reference for code examples
+throughout the book.
