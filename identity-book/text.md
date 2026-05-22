@@ -83,11 +83,7 @@ Machine reasoning is being deployed in medicine, law, and civil engineering --
 domains where a hallucination in a reasoning chain is a misdiagnosis, a missed
 precedent, or a structural failure. In those domains, provenance and
 traceability are not features. They are the minimum conditions under which
-automated reasoning can be trusted at all. Automated hypothesis generation has
-already produced peer-reviewed scientific discoveries: Ross King's robot scientist
-Adam autonomously identified gene-enzyme relationships in yeast metabolism in 2009,
-the first machine confirmed to have discovered novel scientific knowledge without
-human intellectual input.
+automated reasoning can be trusted at all.
 
 The cost of a hallucination in these domains is not a wrong answer on a quiz.
 It is a patient given the wrong drug, a contract interpreted against the
@@ -1974,55 +1970,45 @@ path through the graph edges and provenance records that informed it.
 
 ### Hypothesis Generation
 
-A well-constructed typed graph supports a class of query impossible over unstructured text: "what relationships exist between X and Y that no single source asserts but that follow from combining multiple sources?"
+A well-constructed typed graph supports a class of query impossible over
+unstructured text: "what relationships exist between X and Y that no single
+source asserts but that follow from combining multiple sources?"
 
-This is not a speculative capability. Ross King's robot scientist Adam, described in
-Science in 2009, was the first machine confirmed to have autonomously generated and
-experimentally verified novel scientific knowledge — specifically, gene-enzyme
-relationships in yeast metabolism that human researchers subsequently confirmed in
-independent experiments. King distinguishes Adam's mode of operation from what came
-after: Adam performs genuine hypothesis-driven science, cycling from prior knowledge to
-hypothesis to experiment to revised knowledge; Eve, its successor in drug discovery,
-optimizes a search process rather than generating hypotheses in the same sense. The
-distinction matters. Hypothesis generation requires a structured, constrained
-representation of prior knowledge that the system can reason over — not a corpus of text
-to search, and not an embedding space to navigate by similarity. Adam worked because its
-knowledge was formal and typed, not because it had access to more text.
+In the Holmes corpus: Holmes knows Irene Adler\index{Adler, Irene} outmaneuvered him. Irene
+Adler is associated with a particular case in a particular year. The case
+involves a client whose later appearances are documented in other stories.
+A traversal combining these facts can surface a connection between Holmes's
+experience with Adler and his subsequent behavior in cases involving women
+clients -- a connection no single story states but that follows from the
+graph. The graph narrows the space of possibilities for a literary analyst
+to evaluate.
 
-The typed graph applies this principle to any domain. In the Holmes corpus: Holmes knows
-Irene Adler outmaneuvered him. Irene Adler is associated with a particular case in a
-particular year. The case involves a client whose later appearances are documented in
-other stories. A traversal combining these facts can surface a connection between
-Holmes's experience with Adler and his subsequent behavior in cases involving women
-clients — a connection no single story states but that follows from the graph. The graph
-narrows the space of possibilities for a literary analyst to evaluate.
+In a scientific corpus, the same pattern generates drug-disease candidate
+pairs, gene-pathway associations, and cross-trial comparisons that no single
+paper asserts. These are candidate hypotheses, not established facts. The
+graph does not decide which are worth pursuing. It surfaces candidates that
+a human can filter, prioritize, and test.
 
-In a scientific corpus, the same pattern generates drug-disease candidate pairs, gene
-pathway associations, and cross-trial comparisons that no single paper asserts. These
-are candidate hypotheses, not established facts. The graph does not decide which are
-worth pursuing. It surfaces candidates that a human — or a robot scientist — can filter,
-prioritize, and test. King's Genesis system, currently in development, targets ten
-thousand parallel closed-loop experiment cycles per day. The bottleneck it is designed
-to break is not hypothesis generation. It is the experimental throughput needed to test
-the hypotheses that structured knowledge representation makes possible.
+### An Invitation
 
-### The Extraction Bottleneck Is Broken
+The epistemic commons -- MeSH, HGNC, RxNorm, UniProt, Wikidata, and the
+dozens of domain-specific authorities that curated communities have built
+over decades -- was built for human use. Researchers navigated it through
+literature searches, reference lists, and expert consultation. The knowledge
+was there. The access was slow.
 
-The epistemic commons — MeSH, HGNC, RxNorm, UniProt, Wikidata, and the dozens of
-domain-specific authorities that curated communities have built over decades — was built
-for human use. Researchers navigated it through literature searches, reference lists,
-and expert consultation. The knowledge was there. The access was slow.
-
-The typed graph makes that commons available to machines in a form that carries its own
-warrant: canonical IDs anchoring to the authorities, a schema constraining what can be
-expressed, provenance tracing every claim to its source. A machine traversing this graph
-is not pattern-matching over text. It is reasoning over a structured representation of
-what expert communities have established, with the ability to follow chains of evidence
+The typed graph makes that commons available to machines in a form that
+carries its own warrant: canonical IDs anchoring to the authorities, a
+schema constraining what can be expressed, provenance tracing every claim
+to its source. A machine traversing this graph is not pattern-matching over
+text. It is reasoning over a structured representation of what expert
+communities have established, with the ability to follow chains of evidence
 and surface the sources behind every step.
 
-For fifty years, the bottleneck was extraction — converting the published record into
-structured, machine-readable knowledge at any useful scale. That bottleneck is now
-broken. What comes next is the more interesting question of where reasoning can go.
+That is not a small thing. The extraction bottleneck that prevented this
+for fifty years is now broken. The infrastructure described in this book
+is buildable today, with tools that exist, at a cost that is no longer
+prohibitive.
 
 ---
 
