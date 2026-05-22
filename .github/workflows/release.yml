@@ -24,69 +24,32 @@ jobs:
             texlive-fonts-recommended \
             texlive-fonts-extra \
             texlive-latex-extra \
-            inkscape \
-            imagemagick \
             bc \
             python3-yaml
 
       - name: Build identity-book
         run: make -C identity-book
 
-      - name: Build kg-book
-        run: make -C kg-book
-
-      - name: Build bfs-ql-book
-        run: make -C bfs-ql-book
-
       - name: Generate mkdocs content
         run: |
-          for book in identity-book kg-book bfs-ql-book; do
-            python3 scripts/split_for_mkdocs.py \
-              --src ${book}/text.md \
-              --out ${book}/docs \
-              --mkdocs-yml ${book}/mkdocs.yml
-          done
-
-      - name: Build cover wraps
-        run: |
-          for book in identity-book kg-book bfs-ql-book; do
-            spine=$(python3 -c "
-          import yaml
-          with open('${book}/cover.yaml') as f:
-              d = yaml.safe_load(f)
-          print(d.get('spine_width_inches', 0.5))
-          ")
-            ./make_cover_wrap.sh ${book} ${spine} ${book}/cover_wrap.jpg
-          done
+          python3 scripts/split_for_mkdocs.py \
+            --src identity-book/text.md \
+            --out identity-book/docs \
+            --mkdocs-yml identity-book/mkdocs.yml
 
       - name: Create release timestamp
         id: timestamp
         run: echo "ts=$(date -u '+%Y%m%dT%H%M%S')" >> "$GITHUB_OUTPUT"
 
-      - name: Package per-book archives
+      - name: Package archive
         env:
           TS: ${{ steps.timestamp.outputs.ts }}
         run: |
           tar -czf identity-book-${TS}.tar.gz \
             identity-book/text.pdf \
             identity-book/text.epub \
-            identity-book/cover_wrap.jpg \
             identity-book/docs/ \
             identity-book/mkdocs.yml
-
-          tar -czf kg-book-${TS}.tar.gz \
-            kg-book/text.pdf \
-            kg-book/text.epub \
-            kg-book/cover_wrap.jpg \
-            kg-book/docs/ \
-            kg-book/mkdocs.yml
-
-          tar -czf bfs-ql-book-${TS}.tar.gz \
-            bfs-ql-book/bfsql.pdf \
-            bfs-ql-book/bfsql.epub \
-            bfs-ql-book/cover_wrap.jpg \
-            bfs-ql-book/docs/ \
-            bfs-ql-book/mkdocs.yml
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -96,13 +59,9 @@ jobs:
           body: |
             Automated release built from commit ${{ github.sha }}.
 
-            Three separate archives, one per book. Each contains:
-            - Interior PDF (Lulu-ready)
+            Contains:
+            - Interior PDF (Lulu-ready 6×9)
             - EPUB edition
-            - Cover wrap JPG (Lulu-ready)
             - `docs/` + `mkdocs.yml` (mkdocs site content)
-          files: |
-            identity-book-${{ steps.timestamp.outputs.ts }}.tar.gz
-            kg-book-${{ steps.timestamp.outputs.ts }}.tar.gz
-            bfs-ql-book-${{ steps.timestamp.outputs.ts }}.tar.gz
+          files: identity-book-${{ steps.timestamp.outputs.ts }}.tar.gz
           fail_on_unmatched_files: true
