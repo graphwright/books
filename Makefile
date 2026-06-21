@@ -1,4 +1,5 @@
-BOOKS := identity-book kg-book bfs-ql-book
+BOOKS := identity-book
+# kg-book bfs-ql-book
 
 .PHONY: all clean $(BOOKS) $(addsuffix -clean,$(BOOKS))
 
