@@ -39,6 +39,25 @@ truth is pursuable.
 
 ## Preface
 
+My brother told an LLM:
+
+> I live near a carwash and the weather is warm and sunny. I want to get
+> my car washed. Should I walk or drive there?
+
+and of course he was told that on a nice day like this, he could use the
+exercise, so he should walk to the carwash. The model didn't know he would
+need his car in order to get it washed. The wrong answer was delivered with
+the same tone and confidence as a right one. That is the problem this book is
+about.
+
+Large language models\index{large language model} are fluent, capable, and
+unreliable in ways that are hard to predict in advance. They fail not randomly
+but systematically: at the boundary of what their training covered, at questions
+that require grounded reasoning about specific domains, at any task where being
+wrong matters. The fix is not to distrust them entirely. It is to give them
+something reliable to reason from -- a structured, inspectable, domain-specific
+representation of what is actually known. That is a knowledge graph.
+
 This book makes a single argument: that a graph of knowledge becomes
 trustworthy in proportion to how precisely it is typed.
 
@@ -51,33 +70,31 @@ types and predicates, each predicate with a declared type signature, can
 reject a category error at write time rather than propagating it silently
 through every downstream query.
 
-The Sherlock Holmes corpus is the primary worked example. Holmes is chosen
-deliberately: the stories contain disguises, false identities, unreliable
-narration, and time-shifted revelations. These stress-test a typed graph in
-ways a clean, well-curated corpus does not. Medical literature is the second
-domain -- structurally different, higher stakes, and anchored to established
-external ontologies.
+The book leads with the concrete. Chapter 2 walks through a complete working
+system -- the Sherlock Holmes corpus, end to end, from raw text to in-memory
+graph -- because the lived experience of building and querying a real typed
+knowledge graph is the best argument for the discipline. The formal definition
+lives in the Appendix, where it serves as a precise reference rather than a
+barrier to entry.
 
-The book proceeds from abstract to concrete: a formal mathematical definition,
-a language-agnostic schema notation, a Python implementation, and then the
-services that make the graph operational at scale. Readers who work in other
-languages can engage fully with the first three parts and understand exactly
-what they would need to build.
+Holmes is chosen deliberately: the stories contain disguises, false identities,
+unreliable narration, and time-shifted revelations. These stress-test a typed
+graph in ways a clean, well-curated corpus does not. Medical literature is the
+second domain -- structurally different, higher stakes, and anchored to
+established external ontologies.
+
+Readers who work in other languages can engage fully with the conceptual
+chapters and understand exactly what they would need to build. The code
+examples use Python and the `ner_20260608` package, but the ideas are
+language-independent.
 
 ---
 
-# Part I: The Case for Typed Graphs
+## Introduction: Why Machines Need to Show Their Work
 
-*The Sherlock Holmes corpus is the running example throughout this book.
-It is introduced in Chapter 1 and carried forward continuously -- not
-re-introduced at each chapter. A reader arriving at Part III already knows
-the Holmes schema.*
+`\chaptermark{Why Machines Need to Show Their Work}`{=latex}
 
-## Chapter 1: Why Typed Graphs
-
-`\chaptermark{Why Typed Graphs}`{=latex}
-
-### The Stakes
+### The structural failure mode
 
 Machine reasoning is being deployed in medicine, law, and civil engineering --
 domains where a hallucination in a reasoning chain is a misdiagnosis, a missed
@@ -90,12 +107,13 @@ It is a patient given the wrong drug, a contract interpreted against the
 client's interests, a load-bearing calculation that passed review because no
 one could trace the inference to its source. You cannot accept "good enough"
 results. You need to be able to explain the system's reasoning in terms that
-a domain expert can verify and dispute. A user must be able to ask "why that
-answer?" and get back something trustworthy.
+a domain expert can verify and dispute.
 
-The question this book addresses is: what does it take for machine reasoning
-to be trustworthy in these domains? The answer is not a better model. It is
-better structure. A typed graph with provenance is that structure.
+The book's core claim is this: in high-stakes domains, LLM\index{large language model}
+hallucination is not a quirk to be tolerated but a structural failure mode with
+real costs. Typed knowledge graphs with first-class provenance and ontology
+alignment are a principled mitigation -- not a replacement for LLMs, but a
+discipline that constrains and audits what they produce.
 
 ### From RAG to Graph RAG to Typed Graphs
 
@@ -125,7 +143,7 @@ Every edge carries its source. Every triple has been checked against a declared
 vocabulary of types and predicates. The graph cannot contain what it cannot
 express.
 
-### The Reasoning Layer Is Not the Extraction Layer
+### The reasoning layer is not the extraction layer
 
 A typed graph does not require a large language model to operate -- only to
 build. The extraction layer is where LLMs earn their role: reading unstructured
@@ -135,35 +153,123 @@ over well-organized typed data.
 
 This separation matters for more than architectural cleanliness. It means the
 graph is future-proof in a way that an LLM-integrated system is not. The
-extraction technology will change. It is changing now and will continue to
-change. The model that extracts claims today will be replaced by a better
-one tomorrow. But the graph -- if it is typed, if it has canonical IDs, if
-it has provenance -- remains the stable substrate. You can re-extract from
-the same corpus with a better model, compare the new triples against the old,
-and update selectively without discarding accumulated reasoning.
+extraction technology will change. The model that extracts claims today will
+be replaced by a better one tomorrow. But the graph -- if it is typed, if it
+has canonical IDs, if it has provenance -- remains the stable substrate. You
+can re-extract from the same corpus with a better model, compare the new
+triples against the old, and update selectively without discarding accumulated
+reasoning.
 
-The clearest illustration of this principle is a demonstration that has
-nothing to do with LLMs at all. A graph built from the Sherlock Holmes
-stories, running on a Raspberry Pi, can answer questions about the stories
-using pure breadth-first search -- no cloud, no model, no API call. Which
-characters knew each other? What locations are connected to a particular
-case? Who had motive and opportunity in "The Adventure of the Abbey Grange"?
-The graph traversal answers these questions by following typed edges from
-node to node, returning the path as an auditable chain of evidence.
+### Machine reasoning needs what experts already have
 
-*[Placeholder: The Raspberry Pi demonstration -- full BFS traversal of the
-Holmes graph, solving a mystery as a worked example, is planned as a
-companion artifact to this book. The implementation uses SQLite with the
-rusqlite crate in Rust, cross-compiled for aarch64. The demo will be
-published alongside Chapter 3.]*
+Here is the argument for knowledge graphs, stated plainly: genuine reasoning
+about a complex domain requires a representation that makes the structure of
+that domain explicit, inspectable, and correctable. Not as an engineering
+convenience. As an epistemological necessity.
 
-That demonstration is not a curiosity. It is an existence proof. A graph
-organized by typed structure, canonical identity, and provenance supports
-real reasoning without any of the machinery people associate with modern AI.
-The machinery is for building the graph, not for using it. This is
-future-proof reasoning infrastructure, not an LLM wrapper.
+There is a version of this argument that undersells itself. The weak version
+says: machines need explicit knowledge representations because they cannot do
+what humans do implicitly. The strong version -- the one worth making -- says:
+humans need explicit knowledge representations too, for exactly the same
+reasons, and the best human expertise already has them, just not written down
+in a form that machines can use.
 
-### Type Systems and Category Errors
+Think about what it means to be genuinely expert in a complex domain. A working
+cardiologist does not hold relevant knowledge as a pile of facts. She holds it
+as a structured web of relationships -- this drug potentiates that pathway, this
+symptom cluster suggests this differential, this interaction is dangerous in
+patients with this history. The knowledge is relational. It has direction. It
+has confidence levels implicitly -- she trusts the large randomized trials more
+than the case reports, the established mechanisms more than the preliminary
+findings. She has, in effect, a knowledge graph in her head, built over years of
+training and practice. What she does not have is an artifact that a machine can
+query.
+
+The knowledge graph is not a substitute for that expertise. It is an attempt to
+make its structure explicit -- to take the relational model the expert has built
+and put it in a form that can be shared, extended, corrected, and reasoned over
+by systems that did not spend fifteen years in medical training.
+
+The objection that large language models are getting better fast -- that the
+case for explicit knowledge representation is really just a case for not-yet-
+good-enough LLMs, and will dissolve as the models improve -- misses the point.
+A more capable language model reasons better over its training distribution. It
+does not, by virtue of being larger or better trained, acquire the specific,
+curated, provenance-tracked model of *this* domain as *this* community of
+experts currently understands it. That model is constructed through human
+judgment, domain expertise, and deliberate curation. No amount of training data
+substitutes for it, because training data reflects the past and the general,
+while a curated knowledge graph reflects the present and the specific. A living
+graph does not have to be behind the frontier of expert knowledge. An LLM
+always is.
+
+### Three base vectors
+
+The book is organized around three properties that together make a knowledge
+graph trustworthy. They are introduced here and elaborated throughout.
+
+**Strong typing.**\index{strong typing} Every entity and every claim has a declared type.
+Domain and range constraints are enforced by the type system, not runtime
+string parsing. The insight that types prevent entire classes of errors was
+discovered in the ML\index{ML (programming language)} and OCaml\index{OCaml} tradition and
+formalized in Xavier Leroy's CompCert\index{CompCert} project -- a formally verified C
+compiler whose correctness guarantee rests entirely on the discipline of types.
+The argument here is not "use OCaml." It is that these people found something
+real, and it applies to knowledge representations.
+
+**Provenance tracking.**\index{provenance tracking} Every claim carries its origin. A
+proposition without provenance is an unverifiable assertion. When provenance is
+a first-class schema requirement -- not an afterthought -- any fact can be
+traced to its source in a field lookup, not a search. This discipline makes
+dispute resolution and epistemic auditing tractable.
+
+**Alignment with authoritative ontologies.**\index{ontology alignment} Canonical IDs sourced
+from community-curated authorities -- MeSH\index{MeSH}, UMLS\index{UMLS},
+Wikidata\index{Wikidata}, Baker Street Wiki\index{Baker Street Wiki} -- rather than minted
+ad hoc. Ad-hoc IDs are a traceability failure: they cannot be correlated across
+documents, systems, or time.
+
+There is a larger point here that is easy to understate. The canonical
+identifier authorities -- MeSH for diseases, RxNorm for drugs, UniProt for
+proteins, HGNC for genes -- were designed as identity resolution tools: a way
+for different databases, research groups, and institutions to refer to the same
+entity without ambiguity. They were not designed for LLM reasoning. But that is
+what they have quietly become, because when two graphs both anchor their disease
+entities to MeSH terms, a machine reasoner holding connections to both graphs
+can traverse the boundary between them using only the shared canonical IDs.
+No special protocol support. No federation layer. The shared canonical ID is the
+bridge. It was always the bridge. It did not matter until machine reasoners
+needed to cross it. Every knowledge graph that uses canonical IDs correctly is
+automatically composable with every other one that does the same. Graphs that
+mint their own IDs are islands.
+
+### Tour of the book
+
+Chapter 1 develops all three base vectors in depth and presents a
+domain-neutral walkthrough of the five-stage ingestion pipeline. Chapter 2 is
+the primary worked example: the Sherlock Holmes corpus, with a complete schema,
+a running pipeline, and a queryable in-memory graph. Chapter 3 applies the same
+architecture to medical literature, showing how a domain with strong external
+ontologies looks different from one with only a fan wiki for authority. Chapters
+4 and 5 cover the domain service and identity server -- the two components that
+make entity resolution robust at scale. Chapter 6 is the payoff: the graph as a
+reasoning surface, with worked query examples. Chapter 7 sketches the production
+architecture for continuous ingestion. The Appendix provides the formal
+definition for those who want to ground the concepts precisely.
+
+---
+
+## Chapter 1: The Base Vectors in Depth
+
+`\chaptermark{The Base Vectors in Depth}`{=latex}
+
+This chapter builds the conceptual vocabulary and architectural overview using
+a domain-neutral example. No code from the worked domains yet -- those arrive in
+Chapters 2 and 3. The goal here is to make the three base vectors concrete
+enough that the design decisions in those chapters feel motivated rather than
+arbitrary.
+
+### Strong typing as a knowledge discipline
 
 The everyday intuition about types is the apples-and-oranges warning: you
 can't compare them. But that intuition undersells what type systems actually
@@ -180,1650 +286,1771 @@ mismatch, the knowledge equivalent of "meters plus seconds." A typed graph
 rejects it at write time, before it enters the graph and before it can
 propagate into downstream queries.
 
+Types in a knowledge graph are Python classes, not strings. Domain and range
+enforcement is the type system's job. The schema layer -- entity types, predicate
+types, traits -- is fixed at design time. The instance layer is populated at
+ingestion. What a predicate type *is*: a directed, typed, truth-bearing
+proposition class. What a predicate instance *is*: one concrete claim, with a
+subject, object, truth status, and provenance.
+
 This matters most at scale. A knowledge graph built by hand, from a small
-corpus, by a careful engineer, may stay coherent without mechanical
-enforcement -- the engineer notices when something looks wrong. A knowledge
-graph built by an extraction pipeline processing thousands of documents
-cannot rely on human review at insertion time. The pipeline will produce
-malformed triples. The only question is whether those triples are rejected
-immediately or stored and discovered later, after they have joined the graph
-and influenced derived facts.
+corpus, by a careful engineer, may stay coherent without mechanical enforcement.
+A graph built by an extraction pipeline processing thousands of documents cannot
+rely on human review at insertion time. The pipeline will produce malformed
+triples. The only question is whether those triples are rejected immediately or
+stored and discovered later, after they have joined the graph and influenced
+derived facts.
 
-The schema of a typed graph is a contract in the compiler sense: not
-documentation about what the graph is supposed to contain, but a
-machine-checkable constraint that governs every write. A predicate defined
-with domain `[Drug]` and range `[Disease]` is not advice. It is a gate.
-Any proposed triple that presents a non-Drug as the subject or a non-Disease
-as the object is rejected at write time, unconditionally. There is no later
-cleanup step that might or might not run.
+#### Meaning is relational: a brief intellectual history
 
-### A Brief Intellectual History of Type Systems
+The intellectual lineage of the typed knowledge graph runs through two mid-
+twentieth-century ideas that turned out to be more right than their authors
+could fully demonstrate at the time.
+
+Marvin Minsky's\index{Minsky, Marvin} 1974 paper "A Framework for Representing
+Knowledge"\index{A Framework for Representing Knowledge (Minsky)} argued that
+knowledge is not a list of facts -- it is a web of structured relationships.
+When you walk into a restaurant you do not reason from first principles; you
+retrieve a pre-existing frame with slots for host, menu, food, check, tip, and
+fill in the details from observation. The relationships *are* the knowledge. A
+node in isolation is just a label; a node embedded in a typed graph of
+relationships to other nodes is a concept, with context, with implications, with
+a place in a web of meaning.
+
+Douglas Hofstadter's\index{Hofstadter, Douglas} argument in
+*Gödel, Escher, Bach*\index{Godel Escher Bach@\textit{Gödel, Escher, Bach} (Hofstadter)}
+sharpened this: meaning is not a property of individual symbols but of symbol
+systems -- of the relationships and transformations between symbols. "BRCA1" as
+a string of characters means nothing. It means something because of its typed
+relationships to other nodes: it *encodes* a protein, it *increases risk* of
+breast cancer, it *interacts with* other genes. The meaning is in the web, not
+in the label.
+
+The typed knowledge graph as built today is the realization of what both were
+pointing at: a rigorous, computable, queryable structure where entities have
+typed relationships and the graph itself carries meaning. The difference is that
+Minsky and Hofstadter were working at the level of cognitive theory. We are
+building infrastructure.
+
+The bottleneck was always getting knowledge in. Expert systems\index{expert systems}
+in the 1970s and 1980s encoded domain knowledge as explicit rules -- MYCIN\index{MYCIN}
+could outperform medical residents on bacterial infection diagnosis. Cyc\index{Cyc}
+attempted to hand-encode common sense at scale, accumulating millions of
+assertions over decades. Every approach hit the same wall. The extraction step
+that was supposed to be temporary never ended. The marginal cost of a new
+extraction task dropped from months of annotation work to a prompt. That shift
+changes everything. The rest of the analysis still applies.
+
+#### A brief history of type systems
 
 The notion of a type system originates not in programming but in mathematical
 logic, as a response to a crisis. In 1901, Bertrand Russell\index{Russell, Bertrand}
-discovered that naive set theory -- the system Frege had used to ground
-arithmetic -- contains a contradiction now known as Russell's paradox\index{Russell's paradox}.
-The set of all sets that do not contain themselves: does it contain itself?
-Either answer leads to a contradiction. Frege's edifice collapsed.
+discovered that naive set theory contains a contradiction now known as Russell's
+paradox\index{Russell's paradox}. The set of all sets that do not contain
+themselves: does it contain itself? Either answer leads to a contradiction.
+Frege's edifice collapsed.
 
-Russell's own remedy was the theory of types\index{type theory}. The key move was to
-stratify mathematical objects into levels -- individuals, sets of individuals,
-sets of sets of individuals -- and to forbid any statement that mixed levels.
-The paradox dissolved because the set that caused it tried to contain itself,
-which crossed a level boundary the type system prohibited. Bad mathematics
+Russell's own remedy was the theory of types\index{type theory}. The key move
+was to stratify mathematical objects into levels and to forbid any statement
+that mixed levels. The paradox dissolved because the offending construction
+tried to cross a level boundary the type system prohibited. Bad mathematics
 became not just false but syntactically unformable.
 
-Alonzo Church's lambda calculus\index{lambda calculus} developed a formal system for
-computation in the 1930s, and its typed variant introduced function types:
-a function from integers to booleans is a different kind of thing from a
-function from booleans to integers, and applying one where the other is
-expected is a type error. The Curry-Howard correspondence\index{Curry-Howard correspondence}
-later revealed that typed lambda calculus and constructive logic are
-essentially the same thing: programs are proofs, types are propositions,
-and a type-correct program is a valid proof. The compiler became a theorem
-checker.
-
 Types migrated into programming languages through a series of increasingly
-practical forms. Algol 60 had typed variables. Pascal enforced types strictly
-and was influential in making explicit typing a pedagogical norm. ML introduced
-*inferred* types: the programmer need not annotate every variable, because the
-compiler can deduce the types from how values are used. This was a revelation
--- you got the safety guarantees without the annotation overhead.
+practical forms. ML introduced *inferred* types: the programmer need not
+annotate every variable, because the compiler can deduce the types from how
+values are used. Haskell and OCaml extended this to algebraic data types and
+parametric polymorphism. The slogan that emerged from this tradition was "make
+illegal states unrepresentable"\index{illegal states unrepresentable}: design your
+types so that a program that compiles cannot reach an invalid state.
 
-Haskell and OCaml extended this to algebraic data types\index{algebraic data types} and
-parametric polymorphism, making it possible to express "a list of things of
-any type" without sacrificing the ability to check that you only put integers
-into a list of integers. The slogan that emerged from this tradition was
-"make illegal states unrepresentable"\index{illegal states unrepresentable}: design your types
-so that a program that compiles cannot reach an invalid state. Null pointer
-exceptions are impossible in a language that has no null. Buffer overflows
-are impossible in a language whose type system tracks array bounds.
-
-Rust\index{Rust} pushed this further with ownership types\index{ownership types}: a type system that
-tracks not just what kind of data a value holds, but who owns it and for how
-long. Use-after-free, double-free, and data races are type errors in Rust.
-The compiler refuses to produce a program that could commit them.
+Rust\index{Rust} pushed this further with ownership types that track not just
+what kind of data a value holds, but who owns it and for how long. Use-after-
+free, double-free, and data races are type errors in Rust.
 
 The through-line across this history is a bet: that certain classes of error
-can be made structurally inexpressible -- not caught at runtime, not
-documented in a README, but impossible to form in the first place. Each step
-in this history is a new domain where that bet has been placed and won.
+can be made structurally inexpressible -- not caught at runtime, not documented
+in a README, but impossible to form in the first place. A typed graph places the
+same bet on knowledge claims.
 
-A typed graph places the same bet on knowledge claims. Certain classes of
-claim -- ones that violate the type signature of a predicate, ones that
-reference entities the graph has no record of, ones that lack a required
-provenance field -- become inexpressible. Not unlikely, not low-confidence,
-not flagged for review. Inexpressible. The schema is the type system. The
-insertion gate is the compiler pass. Chapter 11 develops this analogy fully.
+#### What the $E \subseteq V$ insight means
 
-### An Informal Definition of the Typed Graph
+Classical graph formalisms treat vertices and edges as disjoint sorts. A typed
+knowledge graph makes a single relaxation: every predicate instance is a full
+member of the vertex set. This means a claim -- say, "Watson knows Holmes" --
+can itself be the subject or object of another claim: "Watson came to know that
+Holmes was alive at the moment of the Briony Lodge alarm."
 
-Before the formal definition in Chapter 2, it is worth touring the components
-informally. A typed graph has six properties that together distinguish it from
-a plain property graph and from RDF.
+This is not reification in the RDF sense. There is no wrapper node. The
+`KnewAt` predicate simply declares its `object_` field as `BaseStatement`, and
+any predicate instance can fill that role directly. Higher-order predication
+comes for free, without structural overhead. The formal definition in the
+Appendix makes this precise.
 
-**A finite, closed vocabulary of entity types.** Every node in the graph is
-classified as exactly one kind of thing, drawn from a list that is defined in
-advance and cannot be extended at write time. A node is a `Person` or a
-`Location` or a `Drug` -- not an untyped blob of properties, and not a URI
-that could mean anything.
+### Provenance as a first-class citizen
 
-**A finite, closed vocabulary of predicates.** Every edge in the graph is
-labeled with a predicate drawn from a declared list. A predicate that does
-not appear in the schema does not exist. An assertion that uses an undeclared
-predicate is not stored as an unknown fact -- it is a type error.
+Every predicate instance carries a provenance sub-schema: a set of fields
+declared in the field schema that record how the assertion was produced. The
+minimum required fields for any predicate type are `source` (the origin of the
+claim) and `extraction_method` (how it was derived).
 
-**Type signatures on predicates.** Each predicate declares its domain (the
-set of entity types allowed as its subject) and its range (the set allowed
-as its object). These are enforced at write time.
+This is architectural, not aspirational. Provenance that lives in a side
+table, optional and sparsely populated, is not provenance in any meaningful
+sense. Provenance that is required by the schema and enforced at construction
+time is a constraint the system upholds unconditionally.
 
-**Canonical IDs.** Every entity node is identified by a stable identifier
-drawn from an external authoritative source where one exists. Two extractions
-that refer to the same real-world entity resolve to the same node.
+`truth_status` and provenance are distinct and both necessary. Truth status is
+the graph's current epistemic commitment to a proposition. Provenance is the
+audit trail behind that commitment. A claim with high-confidence provenance
+from a reliable source may still be `disputed` (if contradicted) or `retracted`
+(if overturned by new evidence).
 
-**Provenance on every edge.** Every edge carries a reference to the source
-that supports it: the document, the passage, the extraction method. An edge
-without provenance is not a weak claim -- it is a malformed record.
+The truth status lifecycle moves one way: `hypothetical` → `asserted_true` →
+`disputed` / `retracted`. The extraction pipeline always produces
+`hypothetical` claims. Promotion is a separate pass. This is a deliberate
+invariant: the pipeline reports what it found, not what is true.
 
-**The closed-world assumption.** Absence of an edge between two entities is
-informative. If the predicate exists and no edge of that predicate connects
-these two entities, that means something -- either the relationship does not
-hold, or the corpus does not assert it. The distinction is explicit rather
-than silent.
+There are two ID regimes for predicate instances. Pipeline-extracted instances
+get a unique ID per extraction event, preserving the full audit trail -- two
+extractions of the same claim from two different passages are two distinct
+members of $V$. Content-addressed instances use `statement_id()`, which
+produces the same ID for the same `(subject, predicate, object)` triple --
+re-extraction is confirmation, not a duplicate. The two patterns should not be
+mixed in a single loading pass.
 
-The Resource Description Framework (RDF)\index{RDF} got the foundational atoms
-right: the triple as the atomic unit of knowledge, URIs as stable referents,
-the basic idea of linked data. What RDF left uncontrolled is what can appear
-in each position of the triple. Any URI can be a subject, any URI can be a
-predicate, any URI or literal can be an object. There are no entity types.
-Predicates carry no type signatures. The result is a system with no gate
-on the vocabulary: category errors are not detectable, they are merely
-possible.
+### Ontology alignment
 
-A property graph\index{property graph} -- the model used by Neo4j\index{Neo4j} and similar
-systems -- treats relationships as first-class citizens. An edge has a type,
-a start node, an end node, and a set of properties. Provenance, confidence,
-and evidence ride on the edge where they belong, without the reification
-gymnastics RDF requires. But property graphs historically left the
-enforcement of types and predicate signatures to application code. The
-schema, if one exists, is documentation, not a gate.
+Why are canonical IDs sourced from authorities worth the cost? Because ad-hoc
+IDs are a traceability failure. An ID you mint yourself cannot be correlated
+across documents, systems, or time. An ID sourced from a community-curated
+authority -- a Wikidata QID, a MeSH identifier, a Baker Street Wiki URL -- is
+shared by every system that uses the same authority. Two extractions from
+different sources that agree on the ID agree on the referent without
+negotiation.
 
-The typed graph is the synthesis: first-class edges with typed nodes,
-constrained predicates, canonical IDs, and provenance -- all enforced by
-the structure itself.
+Ontology authority is a domain-level choice. Different domains have different
+authorities. For medicine: MeSH, UMLS, UniProt. For the Sherlock Holmes
+corpus: Baker Street Wiki. What counts as authoritative is assessed by three
+criteria: coverage (does it enumerate the entities this graph needs?),
+stability (are its identifiers durable?), and community backing (is there an
+organization accountable for its quality over time?).
 
-The Holmes corpus is this book's primary witness. Holmes is chosen
-deliberately: the stories contain disguises, unreliable narrators, and
-revelations that retroactively reinterpret earlier facts. A Holmes graph
-needs to represent not just what happened, but who knew what and when.
-These requirements push the schema in ways a clean scientific corpus does
-not, which makes Holmes a better stress test than a well-curated dataset
-where everything is labeled and nobody lies. Chapter 2 introduces the
-Holmes schema formally; Chapter 3 presents it in full as a YAML document.
+Provisional IDs (`provisional:N`) are a principled fallback when no authority
+match exists. They are not a failure signal -- they are the correct output for
+entities the authority does not cover. Provisional entities are full graph
+citizens: type constraints apply, edges reference them, evidence accumulates.
+Promotion to a canonical ID is a later operation that does not require re-
+running any pipeline stage.
 
----
+The `id` field is never parsed to recover type. Type is the exclusive
+responsibility of the Python class hierarchy and Pydantic's type system.
+Display is entirely separate. `__str__` returns `display_name` for entities
+that carry one, and `ClassName(subject → object)` for predicate instances.
+It is a one-way presentation artifact, never parsed back.
 
-## Chapter 2: The Formal Definition
+### A hypothetical ingestion -- end to end
 
-`\chaptermark{The Formal Definition}`{=latex}
+Before examining the Holmes and medical domains in detail, it is useful to
+see the five pipeline stages in abstract, applied to a simple biography passage.
 
-### Why Formalism
+**Sentencize.** Raw text is split into numbered sentences emitted as JSONL.
+Each record carries a sequential ID and a paragraph index. The numbering is
+continuous across the document. Why JSONL: it is streamable, inspectable
+without a database, and trivially resumable -- the highest existing ID tells
+the stage where to restart after a crash.
 
-Informal descriptions of a typed graph are useful for building intuition.
-They are not sufficient for specifying exactly what a typed graph is and
-is not -- for determining, unambiguously, whether a given triple is valid,
-whether a given schema is self-consistent, or whether two graphs built by
-different teams against the same specification are interoperable.
+**Coreference resolution.** Chunk-level entity/mention clusters are produced.
+Each chunk is a window of sentences. The model returns, for each recognized
+entity in the chunk, the list of spans that refer to it. A carry-in context
+from the previous chunk handles references that cross chunk boundaries.
 
-Mathematics is the most precise language available for these questions.
-This chapter provides a formal definition that is short enough to hold in
-working memory and precise enough to resolve any question about conformance.
-Programmers who find mathematical notation off-putting are invited to read
-it anyway. The definition is seven components long. The rigor pays for
-itself in every downstream chapter that can say "this is what Chapter 2
-calls $T_E$" rather than re-explaining the concept.
+**Entity merge.** The per-chunk entity labels are resolved into a global entity
+table with canonical IDs. This is the stage that calls the authority: Baker
+Street Wiki, MeSH, or whatever the domain service configures. Entities that
+receive an authority match get a `wiki:` or ontology-prefixed ID. Entities that
+miss get `provisional:N`. Alias lists are accumulated and will be used by the
+next stage.
 
-### The Seven-Tuple
+**Event/moment extraction.** Discrete events and temporal anchors are extracted
+as first-class entities. An event is something that *happened*; a moment is a
+temporal anchor, optionally tied to a specific character's epistemic perspective.
+These are not noun phrases -- they require narrative reasoning to identify, and
+so this pass uses a frontier model rather than a local one.
 
-A typed graph is a seven-tuple $(T_V,\ T_E,\ \Phi,\ V,\ E,\ \tau_V,\ \tau_E)$
-where:
+**A note on LLMs vs. classical NLP here.** Named entity recognition and
+relation extraction had become genuinely practical by the mid-2010s.
+BioBERT\index{BioBERT} family models set benchmarks that were hard to dismiss.
+But the brittleness showed up at the edges, and the edges were everywhere.
+Domain adaptation\index{domain adaptation} required months of annotation per new
+domain. The annotation treadmill\index{annotation} kept moving as schemas evolved.
+Hedged language\index{hedging} ("the effect was attenuated") and implicit
+relationships ("patients showed 40% reduction in tumor burden") routinely
+defeated classical architectures that relied on statistical proxies for
+semantic relationships. The honest summary: classical systems worked well on
+easy cases and failed in ways that were hard to characterize on the hard cases.
+LLMs change this not by being magic but by changing the economics: the marginal
+cost of a new extraction task is a prompt. The cycle from "I want to extract
+this relationship" to "I have a working extractor" is hours, not months.
 
-- $T_V$ is a finite set of **entity types** (the vertex type vocabulary).
-  Example: $T_V = \{\texttt{Person}, \texttt{Location}, \texttt{Object}, \texttt{Event}\}$.
+**Triplet extraction.** Predicate instances are extracted by slot-filling
+against the known schema. Given the complete entity/event/moment index and a
+chunk of sentences, the model fills: subject (from the entity table), predicate
+type (from the schema vocabulary), object (from the entity table), and
+provenance fields. Every output record has `truth_status: hypothetical`. Domain
+and range constraints are validated in Python, not in the prompt. Unknown
+aliases and type mismatches are warned and dropped.
 
-- $T_E$ is a finite set of **predicate types** (the edge type vocabulary).
-  Example: $T_E = \{\texttt{associated\_with}, \texttt{disguised\_as}, \texttt{occurred\_at}\}$.
+The design choices that look incidental here -- JSONL, continuous IDs, local
+vs. frontier model allocation, `hypothetical` as a pipeline invariant -- all
+become concrete and motivated in Chapter 2.
 
-- $\Phi$ is a **field schema assignment**: for each type $t \in T_V \cup T_E$,
-  $\Phi(t)$ specifies the fields (names and value types) that instances of $t$
-  must carry. For entity types these might include a canonical ID field and a
-  provenance timestamp; for predicate types they include a source citation and
-  confidence score.
+### Pipeline, domain service, and identity server
 
-- For each $p \in T_E$: a non-empty set $\text{dom}(p) \subseteq T_V$ of
-  **permitted subject types**, a non-empty set $\text{rng}(p) \subseteq T_V$
-  of **permitted object types**, and a (possibly empty) **trait set**
-  $\text{Tr}(p)$ drawn from the trait vocabulary defined below.
+The three components of the architecture are cleanly separated by what they
+know.
 
-- $V$ is a set of **entity instances**, each a record conforming to
-  $\Phi(\tau_V(v))$ for its assigned type.
+**The pipeline** is a sequence of stateless transforms over JSONL. Each stage
+reads from one or more input files and writes to an output file. No stage has
+in-memory state that persists across runs. Resume support is a first-class
+requirement for multi-hour runs: each stage scans its existing output on
+startup and skips already-processed records.
 
-- $E \subseteq V \times T_E \times V$ is a set of **directed typed edge
-  instances**. Each edge $(u, p, v)$ pairs a subject entity, a predicate type,
-  and an object entity, and carries a record conforming to $\Phi(p)$.
+**The domain service** is the wall between domain knowledge and the rest. It
+implements exactly three decisions: how to resolve a mention to an authority
+ID (for Holmes: query Baker Street Wiki; for medicine: query MeSH/UMLS); how
+to select a survivor when two entities merge (prefer canonical over provisional;
+prefer longer canonical name); and what similarity threshold to use for
+automatic synonym merging (literary circumlocutions need a lower threshold than
+biomedical synonyms). Everything that surprised us about a domain belongs
+inside this wall. The pipeline stages, the identity server core, and the graph
+loader are domain-agnostic.
 
-- $\tau_V : V \to T_V$ assigns a type to each entity instance.
+**The identity server** is the domain-agnostic core for entity resolution at
+scale. It provides atomic `find-or-create` for canonical entities, a Redis
+read-through cache for high-throughput per-mention resolution, and embedding-
+based similarity search for automatic merge when entities exceed a threshold.
+It calls the domain service for its three decisions; it knows nothing about
+Baker Street Wiki or MeSH directly.
 
-- $\tau_E : E \to T_E$ is the edge type projection (the predicate label of
-  each edge; this is already encoded in the edge tuple but named explicitly
-  for use in validity constraints).
+Chapter 4 covers the domain service in depth. Chapter 5 covers the identity
+server. Neither is required for single-document, single-pass ingestion -- the
+`scandal_instances.py` pattern in Chapter 2 works without either. Both become
+essential for concurrent multi-document ingestion.
 
-**Validity constraints.** A typed graph $(T_V, T_E, \Phi, V, E, \tau_V, \tau_E)$
-is *valid* if and only if, for every edge $(u, p, v) \in E$:
+### Graph traversal -- a first look
 
-1. $\tau_V(u) \in \text{dom}(p)$ \ \ (subject type conforms to predicate domain)
-2. $\tau_V(v) \in \text{rng}(p)$ \ \ (object type conforms to predicate range)
-3. the fields of $u$, $(u,p,v)$, and $v$ each conform to the corresponding
-   $\Phi$ specification
+The graph is an in-memory index over instances: `by_id` (ID → instance),
+`out_edges` (entity ID → list of outgoing predicate instances), `in_edges`
+(entity ID → list of incoming predicate instances). All lookup operations are
+O(1) or O(degree).
 
-**Subtype hierarchies.** $T_V$ may be equipped with a partial order $\leq$
-(a DAG) representing subtype relationships. The validity constraint is then
-generalized: $\tau_V(u) \leq t$ for some $t \in \text{dom}(p)$. The leaf
-types in the DAG are the types assigned to individual entities; supertypes
-appear only in predicate domain/range declarations. This means adding a new
-leaf subtype automatically inherits all predicate permissions of its
-supertypes, without any change to the predicate definitions.
+BFS is the fundamental query primitive. It returns hop layers: `layers[0]` is
+the seed set, `layers[1]` is everything reachable in one hop, and so on. BFS
+traverses both outward and inward edges, so symmetric predicates (`Knows`) and
+event participation (`Involves`) are reachable regardless of storage direction.
+Statement nodes appear in hop layers, making higher-order predicates traversable
+in later hops. The default truth-value filter is `asserted_true` only.
 
-### Trait Vocabulary
+The asserted graph -- the projection of the edge set where `truth_status =
+asserted_true` -- is the default traversal surface. Disputed and hypothetical
+claims remain in the graph and can be queried directly, but they are excluded
+from BFS and transitive closure by default. Overriding the filter is a
+deliberate choice.
 
-Each predicate type carries a set of **traits** that declare additional
-semantic properties, enabling inference beyond simple edge traversal.
-
-$$\text{Trait} ::= \text{Symmetric} \mid \text{Transitive} \mid \text{Functional} \mid \text{InverseFunctional} \mid \text{Inverse}(p') \mid \text{Rule}(\phi \Rightarrow \psi)$$
-
-The named traits are shorthand for universally quantified logical formulas:
-
-| Trait | Implicit rule |
-|---|---|
-| $\text{Symmetric}$ | $(x, p, y) \Rightarrow (y, p, x)$ |
-| $\text{Transitive}$ | $(x, p, y) \wedge (y, p, z) \Rightarrow (x, p, z)$ |
-| $\text{Functional}$ | $(x, p, y) \wedge (x, p, z) \Rightarrow y = z$ |
-| $\text{InverseFunctional}$ | $(x, p, z) \wedge (y, p, z) \Rightarrow x = y$ |
-| $\text{Inverse}(p')$ | $(x, p, y) \Rightarrow (y, p', x)$ |
-
-Examples from the Holmes schema:
-- `located_in` carries $\text{Tr}(p) = \{\text{Transitive}\}$
-- `married_to` carries $\text{Tr}(p) = \{\text{Symmetric}\}$
-- `has_true_identity` carries $\text{Tr}(p) = \{\text{Functional}\}$
-- `contains` carries $\text{Tr}(p) = \{\text{Inverse}(\texttt{contained\_by})\}$
-
-The final trait, $\text{Rule}(\phi \Rightarrow \psi)$, is the open-ended case:
-an arbitrary Horn clause attached to a predicate type for situations that do
-not reduce to any named pattern. For example, a `is_disguised_as` predicate
-might carry:
-
-$$\text{Rule}\bigl((x,\ \texttt{is\_disguised\_as},\ y) \wedge (y,\ \texttt{known\_to},\ z) \Rightarrow (x,\ \texttt{unknown\_to},\ z)\bigr)$$
-
-The named traits are cheap to represent (an enum value) and exploitable
-algorithmically during BFS. `Rule` requires a rule engine or Datalog-style
-evaluator to fire, and its presence signals a heavier runtime commitment.
-Tracking whether any schema actually uses `Rule` is worth doing.
-
-### A Worked Example
-
-*[Placeholder: This section will present a small Holmes graph -- five entity
-instances and three edge instances -- verified component by component against
-the seven-tuple definition. One valid triple will be shown as an instance of
-each of $V$, $E$, $\tau_V$, and $\tau_E$. One invalid triple and the
-specific validity constraint it fails will be shown. The Holmes schema used
-here will be the same schema defined in full in Chapter 3.]*
-
-### What the Formal Definition Does Not Guarantee
-
-Structural well-formedness is not factual correctness. A well-typed, well-
-provenance-tracked edge can still carry a false claim. Watson misremembers
-an event. Holmes misidentifies a suspect. An extraction pipeline misreads a
-passage. All of these produce triples that pass every validity constraint and
-enter the graph as valid claims.
-
-The schema is a filter, not a judge. What it guarantees is that the triples
-reaching the stage of factual evaluation are the right *kind* of claim about
-the right *kind* of entities: that subjects and objects are the correct
-types, that predicates are drawn from an agreed vocabulary, and that the
-question being asked is at least well-formed. Category errors never reach
-the factual evaluation stage. Everything else does -- and whether it is
-true is a question for domain experts, for replication across sources, and
-for the confidence scores that aggregate evidence quality.
+Chapter 6 develops traversal in depth, with worked examples from the Holmes
+corpus.
 
 ---
 
-# Part II: The Schema
+## Chapter 2: The Holmes Corpus
 
-*The schema is the bridge between the mathematical definition and running
-code. Chapter 3 presents it in a language-agnostic notation; Chapter 4
-shows one concrete realization in Python. The same Holmes schema appears
-in both chapters so the relationship is explicit.*
+`\chaptermark{The Holmes Corpus}`{=latex}
 
-## Chapter 3: The Schema Definition Language
+*A Scandal in Bohemia* is eight thousand words. It is self-contained, well-
+known, and structurally demanding. The plot turns on identity concealment,
+epistemic asymmetry, and one person's ability to out-think another -- which
+means a schema that can faithfully represent the story must handle belief,
+deception, temporal knowledge, and contested facts. That is exactly the kind
+of stress test a typed knowledge graph needs.
 
-`\chaptermark{The Schema Definition Language}`{=latex}
+This chapter walks through the complete Holmes pipeline: schema design, the
+five ingestion stages, and the in-memory graph that results. Every design
+choice is motivated by something the domain forced. The surprises are as
+instructive as the clean parts.
 
-### Why Language-Agnostic
+### 2.1 Why Holmes?
 
-The typed graph concept is independent of Python, Rust, or TypeScript. A
-team building a Holmes graph in Rust and a team building a medical graph in
-Python should be able to read each other's schemas without a translation
-layer. The schema document is the source of truth; language-specific bindings
-are derived from it.
+Three properties make *A Scandal in Bohemia* an unusual choice for a knowledge
+graph worked example, and all three are features rather than accidents.
 
-This pattern has precedent. Protocol Buffers, Apache Thrift, and GraphQL SDL
-all follow the same principle: write the schema once in a neutral notation,
-generate or implement bindings for each target language. The difference here
-is that the schema is a graph vocabulary -- a declaration of what kinds of
-things exist and what kinds of relationships can hold between them -- rather
-than a message format or a query interface. But the benefits of language
-neutrality are the same: schema changes propagate to all bindings; bindings
-can be tested against the canonical schema; teams can review schema design
-without knowing each other's implementation language.
+**Epistemic richness.** The story is not just about what happened; it is about
+who knew what and when. Watson narrates. Holmes deduces. The King conceals his
+identity. Irene Adler\index{Adler, Irene} deceives Holmes about where she keeps
+the photograph. Godfrey Norton appears and disappears in a way that Watson
+witnesses but does not fully understand. A graph that only records facts --
+*Irene lives at Briony Lodge, Holmes visited it on 21 March* -- misses most of
+what is interesting. The schema needs to represent belief states, epistemic
+moments ("Watson came to know that the King was in disguise at this moment"),
+and the temporal dimension of knowledge.
 
-The notation used in this book is YAML. It is widely readable, supports
-nested structure cleanly, and does not require a schema-definition language
-of its own. The Holmes schema below can be read and understood by any
-software engineer in any language.
+**Literary circumlocution.** Doyle almost never calls his characters by the same
+name twice in a row. The King is variously "my royal client", "His Majesty",
+"Count Von Kramm", "a large man with a broad florid face and a strong assertive
+chin", and his full name, Wilhelm Gottsreich Sigismond von Ormstein. A pipeline
+that has to resolve all of these to a single entity under pressure from an
+8,000-word corpus, with only a fan wiki as the authority, is a genuine stress
+test for entity resolution.
 
-### The Holmes Schema
+**A thin external ontology.** Baker Street Wiki is a well-maintained fan wiki
+with good coverage of the major characters and reasonable coverage of the
+canonical locations. But it is not a curated ontology in the way MeSH or UMLS
+are. Many incidental characters -- the groom Holmes bribes, the cab driver, the
+witnesses at the wedding -- have no wiki page at all. The pipeline must handle
+these gracefully, falling back to provisional IDs without failing.
 
-*[Placeholder: The Holmes schema is being built inductively by annotating
-stories rather than pre-designed. The schema below is a working draft,
-sufficient to illustrate the structure; it will be extended as the corpus
-annotation work in the companion repository progresses. The authoritative
-version is maintained at* `graphwright.io/schemas/holmes`*.]*
+These three properties together produce a domain where you cannot rely on the
+ontology to do the hard work, where local models are not strong enough for the
+reasoning-intensive passes, and where the schema needs to model epistemic
+states -- not just physical facts. That combination forces every interesting
+design decision that makes the architecture general.
 
-```yaml
-schema:
-  name: holmes
-  version: "0.3.0-draft"
-  description: >
-    Schema for the Sherlock Holmes canonical corpus (Conan Doyle, 60 stories).
-    Built inductively from story annotation; provisional types are flagged.
-  authoritative_ontology:
-    name: Baker Street Wiki
-    base_url: "https://bakerstreet.fandom.com/wiki/"
-    id_pattern: "https://bakerstreet.fandom.com/wiki/{Article_Title}"
+### 2.2 The Holmes Schema
 
-node_types:
-  Person:
-    description: A human character in the stories.
-    canonical_id_source: baker_street_wiki
-    fields:
-      - name: canonical_id
-        type: uri
-        required: true
-      - name: display_name
-        type: string
-        required: true
-  Location:
-    description: A physical place referenced in the stories.
-    canonical_id_source: baker_street_wiki
-    fields:
-      - name: canonical_id
-        type: uri
-        required: true
-      - name: display_name
-        type: string
-        required: true
-  Object:
-    description: A significant physical object.
-    canonical_id_source: baker_street_wiki
-    fields:
-      - name: canonical_id
-        type: uri
-        required: true
-  Event:
-    description: A discrete occurrence within a story.
-    fields:
-      - name: story_id
-        type: string
-        required: true
-      - name: description
-        type: string
-        required: true
-  Moment:
-    description: >
-      A named point in the epistemic timeline of the narrative: the point
-      at which a particular assertion became knowable to a particular narrator.
-      Provisional: may be refactored or absorbed as the schema matures.
-    provisional: true
-    fields:
-      - name: story_id
-        type: string
-        required: true
-      - name: label
-        type: string
-        required: true
+The schema is in `src/ner_20260608/holmes_schema.py`. It is the executable
+specification: every type and constraint is enforced by Pydantic\index{Pydantic} at
+construction time and by the Python type system statically. Designing the schema
+was an inductive process -- it was built by annotating the story, not pre-
+designed from first principles.
 
-edge_types:
-  associated_with:
-    description: Person is habitually connected to a location.
-    subject_types: [Person]
-    object_types: [Location]
-    provenance_required: true
+#### Entity types
 
-  disguised_as:
-    description: Person adopted the appearance or identity of another.
-    subject_types: [Person]
-    object_types: [Person]
-    provenance_required: true
+Eight entity types cover the Holmes domain:
 
-  knows:
-    description: Person has an acquaintance or professional relationship with another.
-    subject_types: [Person]
-    object_types: [Person]
-    traits: [Symmetric]
-    provenance_required: true
+| Type | Purpose |
+|------|---------|
+| `Person` | A real individual: Holmes, Watson, Irene Adler, the King |
+| `Persona` | A role a person plays: Count Von Kramm, the Clergyman |
+| `Location` | A place: 221B Baker Street, Briony Lodge, London |
+| `Object` | A physical thing: the cabinet photograph |
+| `Document` | A written artifact: the King's note, Irene's letter |
+| `Event` | A discrete occurrence: the fake fire alarm, the wedding |
+| `Moment` | A temporal anchor for events and epistemic changes |
+| `Plan` | A course of action (provisional) |
 
-  located_in:
-    description: A location is situated within another location.
-    subject_types: [Location]
-    object_types: [Location]
-    traits: [Transitive]
-    provenance_required: false
+`Persona` is the first schema decision that the domain forced. Doyle uses
+disguise as a plot device so heavily that it demanded its own type. A `Persona`
+is not a `Person` -- it is a role played by a person. Holmes disguised as a
+Nonconformist Clergyman and the King disguised as Count Von Kramm are both
+`Persona` instances. The `DisguisedAs` and `HasTrueIdentity` predicates link
+personas to their underlying persons. Without this distinction, the graph would
+either merge the King and Count Von Kramm into the same node (wrong) or treat
+them as separate people with no connection (also wrong).
 
-  occurred_at:
-    description: Event is anchored to a narrative moment in time.
-    subject_types: [Event]
-    object_types: [Moment]
-    provenance_required: true
-
-  known_to_watson_at:
-    description: >
-      Event became part of Watson's knowledge at this narrative moment.
-      Distinct from occurred_at: an event may have happened earlier than
-      Watson learned of it.
-    subject_types: [Event]
-    object_types: [Moment]
-    provenance_required: true
-
-  involves:
-    description: Event involves a person as a participant.
-    subject_types: [Event]
-    object_types: [Person]
-    provenance_required: true
-
-  has_true_identity:
-    description: >
-      Person's presented identity conceals their actual identity.
-      Functional: a person has at most one true identity.
-    subject_types: [Person]
-    object_types: [Person]
-    traits: [Functional]
-    provenance_required: true
-
-trait_groups:
-  epistemic:
-    description: Fields tracking what is known and by whom.
-    applies_to: [edges]
-    fields:
-      - name: narrator_confidence
-        type: float
-        range: [0.0, 1.0]
-        description: Holmes's/Watson's expressed certainty at time of narration.
-  provenance:
-    description: Source tracing fields required on all evidential edges.
-    applies_to: [edges]
-    fields:
-      - name: story_id
-        type: string
-        required: true
-      - name: paragraph_index
-        type: integer
-        required: true
-      - name: extraction_method
-        type: string
-        required: true
-      - name: extraction_confidence
-        type: float
-        range: [0.0, 1.0]
-        required: true
-```
-
-### Walking Through the Schema
-
-Each section of the schema document corresponds directly to components of the
-seven-tuple from Chapter 2. `node_types` is $T_V$. `edge_types` is $T_E$,
-with each entry also specifying $\text{dom}(p)$, $\text{rng}(p)$, and
-$\text{Tr}(p)$. `trait_groups` specifies field schema requirements that
-become part of $\Phi$.
-
-The `occurred_at` and `known_to_watson_at` predicates are worth pausing on.
-A single event in Holmes's world has two temporal anchors: when it happened,
-and when Watson came to know it. In "The Adventure of the Empty House,"
-Holmes reveals he survived Reichenbach Falls and has been in hiding for
-three years. The event (Holmes's survival) happened during "The Final
-Problem." Watson's knowledge of it dates to "The Empty House." A schema
-that tracks only one of these cannot represent the epistemic structure of
-the corpus honestly. Both predicates reference the provisional `Moment`
-type, which is the entity that names the specific narrative point of
-anchoring.
-
-### What the Schema Enforces vs. What It Leaves Open
-
-The schema enforces structural well-formedness: which entity types exist,
-which predicates exist, what type combinations are valid, and what fields
-are required. It does not enforce factual correctness. A claim can pass
-every schema constraint and still be wrong.
-
-The closed-world payoff is that absence is informative. If `disguised_as`
-does not appear between two Person entities, that means something -- either
-no disguise relationship holds, or the corpus has not asserted one. This
-ambiguity is explicit rather than silent. A query can distinguish "no
-relationship found" from "relationship not expressible in this schema."
-
-Provisional types carry full constraints while flagged. The `provisional`
-flag is a signal to schema designers -- "we are not yet certain this
-abstraction is right" -- not a relaxation of enforcement. The flag records
-uncertainty about the schema's own design, which is honest and useful, and
-which the formal definition in Chapter 2 carries cleanly.
-
----
-
-## Chapter 4: A Python Binding
-
-`\chaptermark{A Python Binding}`{=latex}
-
-### The Schema Document as Source of Truth
-
-The YAML schema of Chapter 3 is the source of truth. A Python binding is
-one materialization of it: a set of Python classes and enumerations that
-enforce the same constraints in code, with the benefit of IDE type checking,
-mypy narrowing, and `isinstance` guards at runtime. Other language bindings
-are possible and structurally identical; the YAML schema is what makes them
-interoperable.
-
-### `NodeType` and `EdgeType` as `StrEnum`
-
-Entity types and predicate types are represented as Python enumerations
-subclassing `StrEnum`. The base classes are empty; domain schemas subclass
-these to add their vocabulary.
+`Moment` has an important epistemic variant. A `Moment` without a `narrator`
+field is an objective time anchor: "Evening of 20 March 1888." A `Moment` with
+a `narrator` is epistemic: it records the moment *from a specific character's
+perspective*, i.e. the moment a person came to know something.
 
 ```python
-from enum import StrEnum
+moment_watson_sees_king_unmasked = Moment(
+    id="sib:moment:watson_sees_king_unmasked",
+    story_id=STORY,
+    label="Watson witnesses the King remove his mask",
+    narrator=watson,  # epistemic: Watson's moment of discovery
+)
 
-class NodeType(StrEnum):
-    """Base class for all entity type enumerations."""
-
-class EdgeType(StrEnum):
-    """Base class for all predicate type enumerations."""
-
-class HolmesNodeType(NodeType):
-    PERSON = "Person"
-    LOCATION = "Location"
-    OBJECT = "Object"
-    EVENT = "Event"
-    MOMENT = "Moment"  # provisional
-
-class HolmesEdgeType(EdgeType):
-    ASSOCIATED_WITH = "associated_with"
-    DISGUISED_AS = "disguised_as"
-    KNOWS = "knows"
-    LOCATED_IN = "located_in"
-    OCCURRED_AT = "occurred_at"
-    KNOWN_TO_WATSON_AT = "known_to_watson_at"
-    INVOLVES = "involves"
-    HAS_TRUE_IDENTITY = "has_true_identity"
-```
-
-Using empty base enums is not arbitrary. `isinstance(t, NodeType)` works as
-a runtime guard on any entity type from any domain schema. mypy narrows
-`HolmesNodeType` correctly as a subtype of `NodeType`. `GraphSchema` can
-store the enum class itself -- `type[NodeType]` -- rather than a frozenset
-of strings, enabling class-level dispatch. The empty base is load-bearing.
-
-### `BaseEntity` and `BaseRelationship`
-
-```python
-from abc import abstractmethod
-from pydantic import BaseModel
-
-class BaseEntity(BaseModel, frozen=True):
-    entity_id: str
-    display_name: str
-
-    @abstractmethod
-    def get_entity_type(self) -> NodeType: ...
-
-class BaseRelationship(BaseModel, frozen=True):
-    subject_id: str
-    object_id: str
-    story_id: str
-    paragraph_index: int
-    extraction_method: str
-    extraction_confidence: float
-
-    @abstractmethod
-    def get_edge_type(self) -> EdgeType: ...
-```
-
-Models are `frozen=True`. This is not a style preference. Edge instances
-are facts -- structured claims about the world sourced to a specific passage.
-Facts should not be mutable records. A `BaseRelationship` that can be
-mutated after construction can have its provenance fields changed after
-ingestion, which would silently corrupt the audit trail. Frozen models make
-this structurally impossible.
-
-### `PredicateConstraint` and `GraphSchema`
-
-```python
-from pydantic import BaseModel, Field
-from typing import FrozenSet, Optional
-
-class Trait(StrEnum):
-    SYMMETRIC = "Symmetric"
-    TRANSITIVE = "Transitive"
-    FUNCTIONAL = "Functional"
-    INVERSE_FUNCTIONAL = "InverseFunctional"
-
-class PredicateConstraint(BaseModel, frozen=True):
-    name: str = Field(description="Predicate identifier")
-    domain: FrozenSet[NodeType] = Field(description="Allowed subject types")
-    range: FrozenSet[NodeType] = Field(description="Allowed object types")
-    description: str = Field(description="Human-readable definition")
-    traits: FrozenSet[Trait] = Field(default_factory=frozenset)
-    is_functional: bool = Field(default=False)
-    inverse_of: Optional[str] = Field(default=None)
-    provisional: bool = Field(default=False)
-
-class GraphSchema(BaseModel, frozen=True):
-    node_type_cls: type[NodeType]
-    edge_type_cls: type[EdgeType]
-    predicates: FrozenSet[PredicateConstraint]
-    provisional_types: FrozenSet[NodeType] = Field(default_factory=frozenset)
-
-    def validate_triple(
-        self,
-        subject_type: NodeType,
-        predicate: str,
-        object_type: NodeType,
-    ) -> None:
-        constraint = next(
-            (p for p in self.predicates if p.name == predicate), None
-        )
-        if constraint is None:
-            raise ValueError(f"Unknown predicate: {predicate!r}")
-        if subject_type not in constraint.domain:
-            raise TypeError(
-                f"Subject type {subject_type!r} not in domain of {predicate!r}"
-            )
-        if object_type not in constraint.range:
-            raise TypeError(
-                f"Object type {object_type!r} not in range of {predicate!r}"
-            )
-```
-
-### The Holmes Schema in Python
-
-```python
-PROVISIONAL_NODE_TYPES = frozenset({HolmesNodeType.MOMENT})
-
-HOLMES_PREDICATES = frozenset({
-    PredicateConstraint(
-        name="associated_with",
-        domain=frozenset({HolmesNodeType.PERSON}),
-        range=frozenset({HolmesNodeType.LOCATION}),
-        description="Person is habitually connected to location.",
-    ),
-    PredicateConstraint(
-        name="disguised_as",
-        domain=frozenset({HolmesNodeType.PERSON}),
-        range=frozenset({HolmesNodeType.PERSON}),
-        description="Person adopted the appearance or identity of another.",
-    ),
-    PredicateConstraint(
-        name="knows",
-        domain=frozenset({HolmesNodeType.PERSON}),
-        range=frozenset({HolmesNodeType.PERSON}),
-        description="Person has an acquaintance or professional relationship.",
-        traits=frozenset({Trait.SYMMETRIC}),
-    ),
-    PredicateConstraint(
-        name="located_in",
-        domain=frozenset({HolmesNodeType.LOCATION}),
-        range=frozenset({HolmesNodeType.LOCATION}),
-        description="A location situated within another location.",
-        traits=frozenset({Trait.TRANSITIVE}),
-    ),
-    PredicateConstraint(
-        name="occurred_at",
-        domain=frozenset({HolmesNodeType.EVENT}),
-        range=frozenset({HolmesNodeType.MOMENT}),
-        description="Event is anchored to a narrative moment.",
-    ),
-    PredicateConstraint(
-        name="known_to_watson_at",
-        domain=frozenset({HolmesNodeType.EVENT}),
-        range=frozenset({HolmesNodeType.MOMENT}),
-        description=(
-            "Event became part of Watson's knowledge at this narrative moment. "
-            "Distinct from occurred_at."
-        ),
-    ),
-    PredicateConstraint(
-        name="involves",
-        domain=frozenset({HolmesNodeType.EVENT}),
-        range=frozenset({HolmesNodeType.PERSON}),
-        description="Event involves a person as a participant.",
-    ),
-    PredicateConstraint(
-        name="has_true_identity",
-        domain=frozenset({HolmesNodeType.PERSON}),
-        range=frozenset({HolmesNodeType.PERSON}),
-        description="Person's presented identity conceals their actual identity.",
-        traits=frozenset({Trait.FUNCTIONAL}),
-        is_functional=True,
-    ),
-})
-
-HOLMES_SCHEMA = GraphSchema(
-    node_type_cls=HolmesNodeType,
-    edge_type_cls=HolmesEdgeType,
-    predicates=HOLMES_PREDICATES,
-    provisional_types=PROVISIONAL_NODE_TYPES,
+moment_kings_visit = Moment(
+    id="sib:moment:kings_visit_evening",
+    story_id=STORY,
+    label="Evening of 20 March 1888 -- King visits Baker Street",
+    # no narrator: objective timeline anchor
 )
 ```
 
-The relationship between this Python code and the YAML schema in Chapter 3
-is one of derived equivalence. The names, domain/range declarations, and
-traits match exactly. A reader who wants to verify that the Python binding
-correctly materializes the YAML schema can check each field against the
-corresponding YAML entry. The YAML is the spec; the Python is the
-implementation; the correspondence is explicit and verifiable.
+#### Predicate types and their traits
 
-*[Placeholder: Domain-specific edge subclasses adding typed provenance
-fields -- story_id, paragraph_index, extraction_method,
-extraction_confidence on each relationship subclass -- and a demonstration
-of running valid and invalid triples against `HOLMES_SCHEMA.validate_triple`
-will appear in the companion repository before publication.]*
+```python
+class Knows(
+    BaseStatement, ProvenanceMixin, EpistemicMixin, Symmetric
+):
+    subject: Person
+    object_: Person
+
+class LocatedIn(BaseStatement, ProvenanceMixin, Transitive):
+    subject: Location
+    object_: Location
+
+class DisguisedAs(
+    BaseStatement, ProvenanceMixin, EpistemicMixin,
+    Inverse['HasTrueIdentity']
+):
+    subject: Person
+    object_: Persona
+
+class HasTrueIdentity(
+    BaseStatement, ProvenanceMixin, EpistemicMixin,
+    Functional, Inverse[DisguisedAs]
+):
+    subject: Persona
+    object_: Person
+
+class KnewAt(BaseStatement, ProvenanceMixin, EpistemicMixin):
+    subject: Person
+    object_: BaseStatement  # higher-order: any predicate instance
+    moment: Moment
+
+class Contradicts(BaseStatement, ProvenanceMixin, Symmetric):
+    subject: BaseStatement  # both subject and object_ are statements
+    object_: BaseStatement
+```
+
+The traits -- `Symmetric`, `Transitive`, `Functional`, `Inverse` -- are Python
+mixin classes inherited alongside `BaseStatement`. They are introspectable at
+runtime: `issubclass(LocatedIn, Transitive)` is `True`. The `Inverse` trait is
+generic: `Inverse[DisguisedAs]` on `HasTrueIdentity` records the partner
+predicate as a type-level annotation, making the inverse relationship recoverable
+without any external lookup table.
+
+`Functional` on `HasTrueIdentity` is a schema claim: each persona has exactly
+one true identity. No persona is two people. The schema asserts this;
+enforcement requires a separate validation pass (not yet implemented).
+
+`KnewAt`\index{KnewAt} is the schema's most important design decision. Its
+`object_` field is annotated as `BaseStatement` -- any predicate instance at
+all. This enables sentences like "Watson came to know that the King was
+disguised as Count Von Kramm at the moment the mask was removed." The target of
+`KnewAt` is not a new Statement node; it is the existing `DisguisedAs` instance
+-- a full member of $V$ that `KnewAt` simply points at:
+
+```python
+e_watson_knew_king_disguised = KnewAt(
+    id=_sid(watson, KnewAt, e_king_as_count),
+    subject=watson,
+    object_=e_king_as_count,   # IS e_king_as_count, no wrapper
+    moment=moment_watson_sees_king_unmasked,
+    **_p(57, watson),
+)
+```
+
+This is $E \subseteq V$ in practice: `e_king_as_count` is a `DisguisedAs`
+instance and simultaneously a member of $V$ that any predicate whose range
+includes `BaseStatement` can reference directly.
+
+#### Provenance and epistemic mixins
+
+Every predicate type in the Holmes schema inherits `ProvenanceMixin`:
+
+```python
+class ProvenanceMixin(BaseModel):
+    story_id: str
+    paragraph_index: int
+    asserting_narrator: Person | None = None
+    extraction_method: str
+    extraction_confidence: float = Field(ge=0.0, le=1.0)
+```
+
+`paragraph_index` ties every claim to its location in the source text.
+`asserting_narrator` is typically Watson, occasionally `None` for events
+narrated in the omniscient voice. `extraction_confidence` is `1.0` for manually
+annotated instances and a model-emitted float for pipeline-extracted ones.
+
+`EpistemicMixin` adds `narrator_confidence`, for predicates where Watson's
+expressed certainty is worth recording separately from extraction confidence:
+
+```python
+e_watson_knows_of_irene = Knows(
+    id=_sid(watson, Knows, irene_adler),
+    subject=watson, object_=irene_adler,
+    **{**_p(63, watson), "extraction_confidence": 0.7},
+)
+```
+
+#### Identity: canonical IDs and `__str__`
+
+Every entity has an `id` -- a string assigned at construction that is never
+derived from any other field and never parsed back. For persons and locations
+with Baker Street Wiki pages, the id is the full wiki URL:
+
+```python
+holmes = Person(
+    id="https://bakerstreet.fandom.com/wiki/Sherlock_Holmes",
+    display_name="Sherlock Holmes",
+)
+```
+
+For corpus-local entities with no external authority, it is a `sib:`
+namespaced slug:
+
+```python
+evt_fake_fire_alarm = Event(
+    id="sib:event:fake_fire_alarm",
+    story_id=STORY,
+    description=(
+        "Holmes, disguised as a clergyman, stages "
+        "a fake fire alarm at Briony Lodge."
+    ),
+)
+```
+
+Display is entirely separate. `__str__` returns `display_name` for entities
+that have one, and `ClassName(subject → object)` for predicate instances:
+
+```python
+>>> str(holmes)
+'Sherlock Holmes'
+>>> repr(holmes)
+"Person('wiki:Sherlock_Holmes')"
+>>> str(e_king_as_count)
+'DisguisedAs(Wilhelm ... von Ormstein → Count Von Kramm)'
+```
+
+No code anywhere in the system parses an `id` string to determine a type. That
+is the type system's job.
+
+#### Predicate IDs: content-addressed with `statement_id()`
+
+For the manually annotated corpus, predicate IDs are content-addressed:
+
+```python
+def statement_id(
+    subject_id: str,
+    predicate_name: str,
+    object_id: str,
+) -> str:
+    return f"stmt:{subject_id}:{predicate_name}:{object_id}"
+```
+
+Re-constructing the same fact from a different passage yields the same ID --
+re-extraction is confirmation, not a duplicate. For the pipeline-extracted
+JSONL, each triplet gets a unique ID per extraction event, preserving the full
+audit trail.
+
+### 2.3 The Ingestion Pipeline
+
+The pipeline has five stages:
+
+```
+bohemia.txt
+    ↓ sentencize.py
+bohemia_sentences.jsonl
+    ↓ coref.py
+bohemia_coref.jsonl
+    ↓ merge.py
+bohemia_entities.jsonl  (global entity table, canonical IDs)
+bohemia_mentions.jsonl  (flat mention index)
+    ↓ events.py
+bohemia_events.jsonl    (discrete events, participant links)
+bohemia_moments.jsonl   (temporal anchors)
+    ↓ triplets.py
+bohemia_triplets.jsonl  (all truth_status = hypothetical)
+```
+
+Each stage is a stateless transform over JSONL. Intermediate files can be
+inspected, re-run independently, or fed into other tools. All five stages
+support resume: they read the existing output on startup and skip already-
+processed records.
+
+#### sentencize.py -- raw text to numbered sentences
+
+The first decision is the splitter. Standard options (spaCy's sentencizer,
+NLTK's punkt) trip on Doyle's abbreviations: "Dr.", "Mr.", "Mrs." all produce
+false sentence boundaries. The LLM splitter sidesteps this entirely.
+
+The approach: split the raw text on double newlines to get paragraphs (robust,
+no LLM required), then send each paragraph to a local model (`qwen2.5:14b`\index{qwen2.5}
+via Ollama) with a carry-in offset for continuous numbering. `temperature=0.0`
+ensures deterministic output.
+
+```json
+{"id": 1,  "para": 1,
+ "text": "To Sherlock Holmes she is always the woman."}
+{"id": 2,  "para": 1,
+ "text": "I have seldom heard him mention her under any other name."}
+{"id": 42, "para": 11,
+ "text": "His Majesty had hardly spoken before Holmes had sprung
+  from his chair and advanced towards him."}
+```
+
+The `para` field is cheap and valuable: it provides a coarser locality signal
+alongside `id` for downstream stages.
+
+*A Scandal in Bohemia* produces 689 sentences across 218 paragraphs.
+
+#### coref.py -- entity mention clusters
+
+The coreference pass identifies which nouns and pronouns refer to the same
+entity. The pass runs locally on `qwen2.5:14b`. Each call covers a window of
+20 sentences with 3 sentences of carry-in context from the previous chunk. The
+model returns:
+
+```json
+{
+  "chunk_id": "1-20",
+  "entities": [
+    {
+      "label": "Irene Adler",
+      "type": "person",
+      "mentions": [
+        {"sentence_id": 1, "span": "the woman",
+         "confidence": 0.95},
+        {"sentence_id": 7, "span": "she",
+         "confidence": 0.85}
+      ]
+    }
+  ]
+}
+```
+
+A context leak guard filters any mention whose `sentence_id` falls outside the
+current chunk -- models occasionally pull IDs from the context block despite
+instruction.
+
+The coref pass runs entirely locally. This is the volume pass: 46 chunks for a
+single story, each requiring one LLM call. At scale, local throughput matters
+more than reasoning quality here -- the merge pass will correct clustering
+errors.
+
+#### merge.py -- global entity table
+
+The coref pass produces per-chunk entity labels. The merge pass resolves them
+into a global entity table with canonical IDs. It has three sub-passes.
+
+**Pass 1 -- label clustering via Claude API.** All unique entity labels across
+all chunks are sent to Claude in a single call. Claude has strong world-knowledge
+of Holmes canon and can correctly merge "His Majesty", "the King", "Count Von
+Kramm", "my client", and "Wilhelm Gottsreich Sigismond von Ormstein" into one
+entity. A 14B local model cannot reliably do this.
+
+The output is a set of clusters, each with a canonical label and an alias list:
+
+```json
+{
+  "canonical": "Wilhelm Gottsreich Sigismond von Ormstein",
+  "aliases": [
+    "King of Bohemia", "Count Von Kramm", "the King",
+    "my client", "His Majesty"
+  ],
+  "type": "person"
+}
+```
+
+**Pass 2 -- Baker Street Wiki lookup with Claude judgment.** For each canonical
+entity, the merge pass queries the Baker Street Wiki opensearch endpoint. This
+returns candidate URLs by string similarity -- sufficient for "Irene Adler" but
+unreliable for "the woman" (which might match an unrelated article). Instead of
+accepting the opensearch result blindly, the pass sends the top candidates to
+Claude for a binary judgment: is this the correct article for this entity, given
+the story context? Entities that receive `null` get a `provisional:N` ID.
+
+```json
+{"canonical": "Irene Adler",
+ "wiki_url": "https://bakerstreet.fandom.com/wiki/Irene_Adler",
+ "entity_id": "wiki:Irene_Adler",
+ "aliases": ["the woman", "the lady", "Irene Norton"]}
+
+{"canonical": "the groom",
+ "wiki_url": null,
+ "entity_id": "provisional:14",
+ "aliases": ["the ostler", "the groom"]}
+```
+
+**Post-merge deduplication.** Multiple clusters sometimes link to the same wiki
+page -- the most common case is a character whose first name and full name
+appear as separate coref clusters (Watson appeared as both "Dr Watson" and
+"John"). The dedup pass groups by `entity_id` and merges: union the alias lists,
+pick the longer canonical name, emit one record.
+
+**Pass 3 -- mention rewriting.** Walk back through `bohemia_coref.jsonl` and
+rewrite every mention's entity label to the canonical form, adding `entity_id`
+and `wiki_url`. The output `bohemia_mentions.jsonl` is the primary query surface
+for downstream stages.
+
+#### events.py -- events and moments
+
+Events and moments are corpus-local constructs that the coref pipeline does not
+produce. They must be extracted separately.
+
+This pass uses Claude. Identifying discrete events ("Holmes stages the fake fire
+alarm at Briony Lodge") rather than states ("Irene Adler lives at Briony
+Lodge"), and extracting temporal anchors tied to narrative moments, requires
+narrative reasoning that `qwen2.5:14b` does not reliably provide.
+
+Each Claude call covers a window of sentences with the known entity index
+injected into the prompt. The model returns events and moments with participant
+links using the entity IDs from `bohemia_entities.jsonl`:
+
+```json
+{"id": "sib:event:fake_fire_alarm",
+ "description":
+   "Holmes, disguised as a clergyman, stages a fake fire
+    alarm at Briony Lodge.",
+ "sentence_ids": [196, 197, 198],
+ "para": 65,
+ "participants": [
+   "https://bakerstreet.fandom.com/wiki/Sherlock_Holmes",
+   "https://bakerstreet.fandom.com/wiki/Irene_Adler"
+ ],
+ "extraction_confidence": 0.97}
+
+{"id": "sib:moment:fake_fire_evening",
+ "label": "Evening of 21 March 1888 -- fake fire alarm",
+ "event_id": "sib:event:fake_fire_alarm",
+ "narrator_id": null,
+ "sentence_ids": [196],
+ "extraction_confidence": 0.92}
+```
+
+A `SlugRegistry` enforces global uniqueness of `sib:event:` and `sib:moment:`
+slugs within a run. A progress sidecar file records completed chunk IDs for
+resume.
+
+*A Scandal in Bohemia* produces 178 events and 36 moments.
+
+#### triplets.py -- predicate instances
+
+The triplet pass is the slot-filling stage. Given the full entity/event/moment
+index and a chunk of sentences, the model identifies predicate instances:
+subject, predicate type, object, and provenance fields.
+
+This pass runs locally. By the time the triplet pass runs, the entity index is
+complete and the predicate vocabulary is fixed. The model is not doing open NER
+or creative reasoning -- it is filling slots from a constrained set of known IDs
+and known predicate names. `qwen2.5:14b` handles this reliably.
+
+**The alias scheme.** Injecting full Baker Street Wiki URLs into the prompt
+produces poor results -- the model finds them unwieldy. Instead, the prompt uses
+short aliases:
+
+```
+person:sherlock_holmes  →  Sherlock Holmes
+person:dr_watson        →  Dr. John H. Watson
+location:briony_lodge   →  Briony Lodge, Serpentine Avenue
+```
+
+The alias table is built from the entity JSONL and includes all known aliases
+from the clustering pass. A validator expands aliases back to canonical IDs and
+enforces domain/range constraints. Model output referencing an unknown alias is
+warned and dropped; model output with a valid alias but a type mismatch is also
+dropped.
+
+**Event window filtering.** Only events and moments whose `sentence_ids` fall
+within ±15 sentences of the current chunk are injected into the prompt.
+Injecting all 178 events produces slow generation and worse output.
+
+**Output convention.** Every predicate instance in the pipeline output has
+`truth_status: "hypothetical"`. This is a schema-level invariant: the pipeline
+reports what it extracted, not what is true. Promotion is a separate pass.
+
+```json
+{"id": "trip:042",
+ "predicate": "AssociatedWith",
+ "subject_id": "wiki:Irene_Adler",
+ "object_id": "wiki:Briony_Lodge",
+ "truth_status": "hypothetical",
+ "story_id": "scandal_in_bohemia",
+ "paragraph_index": 118,
+ "asserting_narrator_id": "wiki:John_Watson",
+ "extraction_method": "llm-triplet-extraction",
+ "extraction_confidence": 0.93,
+ "sentence_ids": [118, 119]}
+```
+
+### 2.4 Loading: The Fixpoint Problem
+
+The five pipeline stages produce JSONL. The loader (`loader.py` in the
+`ner_20260608` package) hydrates these records into live Pydantic instances.
+Most hydration is straightforward: read the record, look up subject and object
+IDs in the `InstanceSet`, construct the predicate instance.
+
+Higher-order predicates break this pattern. `KnewAt` takes a `BaseStatement` in
+its `object_` field -- meaning it can only be constructed after the target
+predicate instance has been built. In file order, a `KnewAt` record pointing at
+a `Knows` record may appear before the `Knows` record. Worse, a `Contradicts`
+may point at a `KnewAt` that points at a `Knows`, requiring three passes to
+resolve.
+
+The loader handles this with a fixpoint loop\index{fixpoint loop}. On the first
+pass, all first-order predicates are hydrated immediately. Higher-order
+predicates are deferred. The deferred list is retried in a loop until it stops
+shrinking:
+
+```python
+while deferred:
+    remaining = []
+    for rec in deferred:
+        subject_id = rec.get("subject_id")
+        object_id  = rec.get("object_id")
+        if (
+            (subject_id and iset.get(subject_id) is None)
+            or (object_id and iset.get(object_id) is None)
+        ):
+            remaining.append(rec)
+            continue
+        _hydrate_one_triplet(rec, pred_cls, iset)
+    if len(remaining) == len(deferred):  # no progress
+        for rec in remaining:
+            iset.warnings.append(
+                f"higher-order triplet {rec['id']!r}: "
+                f"referent(s) unresolvable -- skipping"
+            )
+        break
+    deferred = remaining
+```
+
+The termination condition is key: the loop exits when the *deferred set* stops
+shrinking, not when the global instance set stops growing. The distinction matters
+when some higher-order triplets have genuinely unresolvable referents. Keying on
+global growth would re-attempt those records on every pass until other chains
+exhausted -- an O(n²) waste. Keying on deferred-set shrinkage terminates in one
+extra iteration after the last resolvable record is processed.
+
+### 2.5 The In-Memory Graph
+
+`graph.py` provides the in-memory index. Construction is O(n) over the instance
+set; all subsequent operations are O(degree) or better.
+
+```python
+from ner_20260608 import load_bohemia_graph
+
+g = load_bohemia_graph()  # ~100ms; loads bundled JSONL from wheel
+
+holmes = g.get("wiki:Sherlock_Holmes")
+print(holmes)      # Sherlock Holmes
+print(repr(holmes))  # Person('wiki:Sherlock_Holmes')
+```
+
+Both the `wiki:` slug form and the full Baker Street Wiki URL are valid lookup
+keys -- `_canonicalize_id` normalizes full URLs to slug form internally.
+
+#### Traversal: edges_from and edges_to
+
+```python
+from ner_20260608.holmes_schema import Possesses, Involves
+
+# What does Irene Adler possess, per asserted facts?
+edges = g.edges_from(
+    "wiki:Irene_Adler",
+    pred_type=Possesses,
+    truth="asserted_true",
+)
+for e in edges:
+    print(f"  {e.object_.display_name}")
+
+# What events involve Irene Adler?
+events = g.edges_to(
+    "wiki:Irene_Adler", pred_type=Involves
+)
+for e in events:
+    print(f"  {e.subject}")
+```
+
+`edges_from` and `edges_to` accept a `truth` parameter that can be a string
+value (`"asserted_true"`), a `TruthStatus` enum member, or a set of either. No
+filter means return all edges regardless of truth status.
+
+#### BFS
+
+```python
+layers = g.bfs(["wiki:Sherlock_Holmes"], max_hops=2)
+# layers[0] = {'wiki:Sherlock_Holmes'}
+# layers[1] = IDs reachable in one hop
+# layers[2] = everything reachable in two hops
+```
+
+BFS traverses both outward and inward edges, so symmetric predicates (`Knows`)
+and event participation (`Involves`) are reachable regardless of the direction
+they were stored. Statement nodes are added to layers -- a `KnewAt` reachable
+in hop 1 makes the statement it points at reachable in hop 2. The default
+`truth_values=('asserted_true',)` filter excludes hypothetical and disputed
+claims from traversal.
+
+#### Transitive closure
+
+```python
+from ner_20260608.holmes_schema import LocatedIn
+
+reachable = g.transitive_closure(
+    "wiki:221B_Baker_Street", LocatedIn
+)
+# → {'wiki:London'}
+```
+
+`LocatedIn` is declared `Transitive` in the schema. The transitive closure
+follows it recursively through the asserted graph.
+
+> **Note on `scandal_instances.py`:** This file is in the source repository
+> under `src/` and is not shipped in the wheel. On a clean install,
+> `import scandal_instances` will fail. Use `Graph.from_module` with the repo
+> on the path, or run from the repo root with `pdm run python`.
+
+#### Temporal queries: sentence_cutoff
+
+`load_bohemia_graph(sentence_cutoff=N)` loads only triplets whose `sentence_ids`
+are all strictly less than N. This builds a temporally-bounded subgraph:
+everything the graph knew before sentence N.
+
+```python
+CUTOFF = 485  # Holmes says "You have the photograph?"
+
+pre = load_bohemia_graph(sentence_cutoff=CUTOFF, warn=False)
+
+# Is the Possesses edge in the pre-cutoff graph?
+photo_edges = pre.edges_from(
+    "wiki:Irene_Adler",
+    pred_type=Possesses,
+    truth="asserted_true",
+)
+# → []  (the Possesses edge is at sentence 511)
+```
+
+This is useful for reasoning about what the characters could have known at any
+point in the narrative. Combined with `KnewAt` edges and their attached `Moment`
+instances, it enables questions like: "What did Watson know, and when did he
+come to know it, as of sentence 200?"
+
+### 2.6 Design Decisions and Their Consequences
+
+**Local vs. frontier allocation.** The coref and triplet passes run on a local
+`qwen2.5:14b` model. The clustering and event extraction passes use Claude via
+the API. This division reflects the nature of each task. Coref and triplet
+extraction are slot-filling against constrained schemas; the local model is
+adequate and the volume is high. Clustering requires narrative world-knowledge
+that the local model does not have; event extraction requires reasoning about
+states vs. actions that the local model consistently gets wrong. The frontier
+model is used only where reasoning quality is the bottleneck.
+
+**The domain service wall.** Every surprise in the Holmes pipeline lived inside
+the domain service boundary: spurious wiki links, the "John"/"Dr Watson"
+deduplication bug, the alias scheme for prompt injection. None of these forced
+changes to the loader, graph, or schema. That is the test of a clean boundary,
+and it passed.
+
+**Provisional IDs as principled output.** `provisional:N` IDs are not failures
+-- they are the correct output for entities that have no Baker Street Wiki page.
+The pipeline produces a queryable graph even with partial ontology coverage.
+Provisional entities can be manually upgraded to canonical IDs in a later pass
+without re-running any pipeline stage.
+
+**`truth_status: hypothetical` as a pipeline invariant.** The pipeline never
+promotes claims to `asserted_true`. That is a deliberate choice: the pipeline
+reports what it extracted, not what is true. Promotion requires a judgment the
+pipeline is not equipped to make automatically. The manually annotated
+`scandal_instances.py` has `truth_status: asserted_true` throughout because
+every claim in it was verified by a human against the source text.
+
+**The unified Statement model.** The decision to make $E \subseteq V$ --
+every predicate instance a full member of the vertex set -- eliminated what
+would otherwise have been a separate reification mechanism. `KnewAt` and
+`Contradicts` simply declare their domain or range as `BaseStatement` and get
+higher-order predication for free. There is no Statement node type, no three-
+edge structural overhead, no multi-hop traversal tax for the common case. The
+fixpoint problem in the loader is the only complexity this introduces, and it
+is tractable.
 
 ---
 
-# Part III: Domains in Practice
-
-*Two worked domains that differ structurally: Holmes, a narrative/epistemic
-domain with deliberate uncertainty; medical literature, a high-stakes domain
-with established external ontologies and evidence grading. The contrast
-demonstrates what the schema language handles uniformly and what varies
-by domain.*
-
-## Chapter 5: Medical Literature -- A Second Domain
+## Chapter 3: Medical Literature
 
 `\chaptermark{Medical Literature}`{=latex}
 
-### Why Medicine as the Second Domain
+> **This chapter is a placeholder. The medical schema and pipeline are not yet
+> implemented. The design is sketched here as a contrast to the Holmes corpus.**
 
-Medicine is the right second domain for reasons that Holmes alone cannot
+### 3.1 Why medical literature?
+
+Medicine is the right second domain for several reasons that Holmes alone cannot
 demonstrate. Where the Holmes corpus is a closed literary universe with a
 fan-maintained wiki as its authority, medical literature has established
-authoritative ontologies built by large professional communities over
-decades. Where Holmes's epistemic complexity comes from narrative structure
-and deliberate misdirection, medicine's complexity comes from genuine
-scientific uncertainty, hierarchical disease classification, and evidence
-grading that must be first-class in the schema.
+authoritative ontologies built by large professional communities over decades.
+Where Holmes's epistemic complexity comes from narrative structure and deliberate
+misdirection, medicine's complexity comes from genuine scientific uncertainty,
+hierarchical disease classification, and evidence grading that must be first-
+class in the schema.
 
-The two domains test the schema language's generality. If the same
-`GraphSchema` machinery -- the same `NodeType`, `EdgeType`, `PredicateConstraint`,
-and `GraphSchema` classes -- can handle both without modification, the
-machinery earns its abstraction. If it cannot, the abstraction is
-undersized. This chapter makes that case.
+**Established, community-curated ontologies.** MeSH\index{MeSH} covers diseases,
+drugs, and biological processes and has served biomedical literature indexing
+since 1963. UMLS\index{UMLS} provides cross-ontology harmonization. UniProt\index{UniProt}
+covers proteins. OMIM covers genetic conditions. These do most of the entity
+resolution work that Baker Street Wiki cannot.
 
-### Authoritative Ontologies in Medicine
+**Structured abstracts.** Background, Methods, Results, Conclusions sections
+provide coarse provenance for free. A claim in Results has different epistemic
+weight than one in Discussion.
 
-Medicine has several authoritative ontologies, each covering a different
-aspect of the domain.
+**High entity reuse across papers.** "IL-6", "interleukin-6", and "interleukin
+6" in 300 papers all resolve to the same MeSH ID without any LLM involvement.
+By paper 200, most common entities are cached; the marginal LLM cost per paper
+approaches zero.
 
-**MeSH** (Medical Subject Headings)\index{MeSH} is maintained by the National Library
-of Medicine and has been the standard vocabulary for biomedical literature
-indexing since 1963. It covers diseases, drugs, biological processes, and
-anatomical structures, and its hierarchical structure encodes relationships
-among concepts that would otherwise have to be extracted from text. A disease
-entity anchored to MeSH:D003480 (Cushing Syndrome\index{Cushing syndrome}) inherits
-the MeSH tree's knowledge that it is a subtype of Adrenal Cortex Diseases,
-which is a subtype of Endocrine System Diseases. It inherits MeSH-recorded
-synonyms: "Hypercortisolism," "Adrenal Cortex Hyperfunction." It inherits
-cross-references to ICD-10-CM\index{ICD-10-CM} codes. None of this must be extracted
-from the corpus -- anchoring makes it available.
+**Different epistemic needs.** Belief states and deception (the Holmes
+machinery) are largely irrelevant. Provenance and confidence carry more weight.
+`disputed` maps to conflicting study results rather than character deception.
 
-**HGNC** (HUGO Gene Nomenclature Committee)\index{HGNC} maintains official symbols and
-names for human genes. When a paper from 1987 uses a gene name that was
-superseded in 1995, HGNC records both names and the relationship between
-them. The resolution system can resolve the old name to the current symbol
-without any domain-specific logic.
+### 3.2 The medical schema
 
-**RxNorm**\index{RxNorm}, maintained by the National Library of Medicine, provides
-normalized names for clinical drugs. A node anchored to RxNorm:3251 inherits
-the accumulated judgment of the biomedical community about what desmopressin
-is, what it does, and how it relates to everything else they have named.
+> **[Placeholder -- schema not yet implemented]**
 
-**UniProt**\index{UniProt} maintains the authoritative database for protein sequences
-and functional information. **NCBI Taxonomy**\index{NCBI Taxonomy} is the taxonomic
-hierarchy backing GenBank\index{GenBank}, RefSeq\index{RefSeq}, and related resources -- the
-shared hierarchy most biomedical pipelines assume when classifying organisms.
+Sketch of entity types: `Drug`, `Disease`, `Gene`, `Protein`,
+`ClinicalTrial`, `PatientCohort`, `Measurement`. Predicate types: `Treats`,
+`AssociatedWith`, `InhibitsPathway`, `IndicatesRiskOf`, `Administered`,
+`Measured`. Higher-order predicates: `SupportedBy` (one claim supported by a
+finding) and `Contradicts` (reused from the Holmes schema).
 
-These authorities share a key property: they were built to solve the same
-problem a typed graph must solve, at the level of a single domain, by a
-community of experts who needed shared identity to communicate. A graph
-that anchors to them is not just assigning unique keys -- it is connecting
-entities to the epistemic commons that expert communities have assembled
-over decades.
+Domain/range for medical is tighter and more checkable than Holmes:
+`Treats(Drug, Disease)` is wrong if the subject is a `Gene`. The type system
+catches this at construction time.
 
-### The Medlit Schema
+### 3.3 The ingestion pipeline for medical literature
 
-```yaml
-schema:
-  name: medlit
-  version: "1.2.0"
-  description: >
-    Schema for biomedical literature. Entity types anchored to
-    MeSH, HGNC, RxNorm, and UniProt.
+> **[Placeholder -- design is sketched, not implemented]**
 
-node_types:
-  Disease:
-    canonical_id_source: mesh
-    fields:
-      - name: mesh_id
-        type: string
-        required: true
-  Drug:
-    canonical_id_source: rxnorm
-    fields:
-      - name: rxnorm_id
-        type: string
-        required: true
-  Gene:
-    canonical_id_source: hgnc
-    fields:
-      - name: hgnc_id
-        type: string
-        required: true
-  Protein:
-    canonical_id_source: uniprot
-    fields:
-      - name: uniprot_id
-        type: string
-        required: true
-  BiologicalProcess:
-    canonical_id_source: mesh
+**Sentencize** -- same approach, minimal change. Medical prose is more regular
+than literary prose.
 
-edge_types:
-  treats:
-    description: Drug is used therapeutically to manage the disease.
-    subject_types: [Drug]
-    object_types: [Disease]
-    provenance_required: true
-    evidence_required: true
+**Coref** -- same local approach. Medical coref is simpler (less circumlocution)
+but entity mention density is higher.
 
-  inhibits:
-    description: Subject suppresses the activity of the object.
-    subject_types: [Drug, Gene]
-    object_types: [Gene, BiologicalProcess]
-    provenance_required: true
-    inverse_of: activates
+**Merge / entity resolution** -- the key difference from Holmes: MeSH/UMLS
+lookup replaces Baker Street Wiki, and most common entities resolve without LLM
+judgment. The Claude judgment pass only fires on ontology misses -- a small
+fraction of calls for a mature medical corpus.
 
-  activates:
-    description: Subject enhances the activity of the object.
-    subject_types: [Drug, Gene]
-    object_types: [Gene, BiologicalProcess]
-    provenance_required: true
-    inverse_of: inhibits
+**Events** -- largely absent as a concept in medical literature. Replace with
+*findings*: a Measurement or Result tied to a study and a cohort.
 
-  associated_with:
-    description: Gene variant is statistically associated with disease.
-    subject_types: [Gene]
-    object_types: [Disease]
-    provenance_required: true
-    evidence_required: true
+**Triplets** -- same local slot-filling approach. The finite predicate
+vocabulary does more work here because medical relationship types are more
+standardized.
 
-  encodes:
-    description: Gene encodes the given protein.
-    subject_types: [Gene]
-    object_types: [Protein]
-    traits: [Functional]
+### 3.4 Per-mention resolution vs. batch clustering
 
-trait_groups:
-  evidence:
-    description: Evidence grading fields for medical claims.
-    applies_to: [edges]
-    fields:
-      - name: evidence_level
-        type: enum
-        values: [meta_analysis, rct, cohort, case_control,
-                 observational, review, case_report]
-        required: true
-      - name: assertion_type
-        type: enum
-        values: [positive, negative, uncertain]
-        required: true
-  provenance:
-    description: Source tracing for all evidential edges.
-    applies_to: [edges]
-    fields:
-      - name: paper_id
-        type: string
-        required: true
-      - name: section_type
-        type: string
-        required: true
-      - name: paragraph_index
-        type: integer
-        required: true
-      - name: extraction_method
-        type: string
-        required: true
-      - name: extraction_confidence
-        type: float
-        required: true
-```
+The Holmes pipeline batches all labels per story and sends one clustering call
+to Claude. For medical literature at scale (hundreds of papers), the better
+approach is per-mention resolution: each label hits the IdentityServer
+immediately, MeSH/UMLS lookup returns a canonical ID on contact, and the LLM
+is only invoked for cache misses that also miss the ontology.
 
-### Evidence as First-Class Structure
+### 3.5 The Cushing's syndrome case study
 
-Medical claims are not all equally strong. A randomized controlled trial is
-stronger evidence for a drug-disease relationship than a single case report.
-A result section is stronger than a discussion section. These distinctions
-are not metadata that might optionally be attached to an edge -- they are
-part of what a medical claim *is*. A claim without evidence grading is not
-a weaker medical claim; it is not a medical claim at all.
-
-The schema reflects this by requiring `evidence_level` and `assertion_type`
-on edges that carry the `evidence` trait group. An edge of predicate `treats`
-without these fields fails the provenance completeness check at insertion
-time. There is no way to insert a medical claim and defer its evidence
-grading to a cleanup pass.
-
-This is the same principle as provenance in the Holmes schema, but more
-explicit about what "complete provenance" means per predicate. The Holmes
-schema requires story_id and paragraph_index. The medlit schema requires
-those plus evidence_level and assertion_type. What counts as a complete
-provenance record is per-predicate knowledge that the schema encodes and
-the insertion gate enforces.
-
-### Comparing Holmes and Medlit
-
-The comparison makes the schema language's generality concrete. Entity
-types differ: `Person`, `Location`, `Moment` in Holmes; `Disease`, `Drug`,
-`Gene`, `Protein` in medlit. Predicate vocabularies differ: `disguised_as`,
-`knows`, `has_true_identity` in Holmes; `treats`, `inhibits`, `activates`
-in medlit. Evidence requirements differ: narrative passage locators in
-Holmes; evidence_level and assertion_type in medlit.
-
-What is identical: `NodeType`, `EdgeType`, `PredicateConstraint`,
-`GraphSchema`, `BaseEntity`, `BaseRelationship`, `frozen=True`, the seven-
-tuple from Chapter 2, the trait vocabulary, the insertion validation logic,
-and the linter rule derivation from Chapter 9. Neither domain required
-modification to the base machinery. The machinery handles both without
-knowing which domain it is serving.
-
-That is not a coincidence. It is the consequence of having defined the
-schema language against the formal definition in Chapter 2, which captures
-the structure common to all typed graphs before any domain-specific detail
-enters.
+> **[Placeholder -- reference to earlier work on a specific paper]**
 
 ---
 
-# Part IV: Canonical Identity
+## Chapter 4: Domain Services -- What the Wall Contains
 
-*This part covers the infrastructure that makes the graph's entities
-unambiguous: the process of resolving mention strings to canonical IDs,
-the service that enforces uniqueness across parallel workers, the domain
-service that encodes domain-specific authority lookup and confidence
-weighting, and the validation layer that enforces the schema at write time
-and audits it after the fact. The architecture here is documented in
-sufficient detail to implement; several sections are still being refined.*
+`\chaptermark{Domain Services}`{=latex}
 
-## Chapter 6: Strings vs. Things
+Both domain services implement the same interface -- `DomainPolicy` / 
+`DomainClient` -- but look completely different inside. The contrast reveals
+what belongs inside the domain service wall and why.
 
-`\chaptermark{Strings vs. Things}`{=latex}
+### 4.1 The DomainPolicy contract
 
-### Two Mentions, One Entity
+Three methods:
 
-Two passages in two different Holmes stories both mention "Holmes." In one,
-Watson records that Holmes spent three days in disguise as an elderly Italian
-priest. In another, a client addresses him directly as "Mr. Holmes." These
-are the same person. A human reader does not deliberate about this.
+- `resolve_authority(mention, entity_type, context)` → canonical ID or null
+- `select_survivor(cluster)` → preferred canonical name when merging clusters
+- `synonym_criteria(entity_type)` → similarity threshold for auto-merge
 
-A graph built from extracted mentions without identity resolution does
-deliberate -- or rather, it does not deliberate at all, and that is the
-problem. It creates a node for the string "Holmes," a node for "Mr. Holmes,"
-possibly a node for "the detective," and stores relationships incident to
-each. The three nodes are not connected. A query for everything the graph
-knows about Sherlock Holmes returns a fraction of what was extracted, split
-across nodes that the graph has no mechanism to join.
+Everything outside this wall -- the identity server core, all pipeline stages
+that call it, the graph and loader -- is domain-agnostic.
 
-This is the strings-vs.-things\index{strings vs.\ things} problem. A string is a sequence of
-characters. A thing is a real-world entity that strings can refer to, and
-that multiple strings can refer to simultaneously. A knowledge graph that
-operates at the level of strings is storing references to things without
-storing the things themselves. Canonical identity\index{canonical identity} is the mechanism
-that makes the transition.
+### 4.2 The Holmes domain service
 
-### What an Authoritative Ontology Provides
+- `resolve_authority`: Baker Street Wiki opensearch → Claude judgment
+  (accept/reject candidate)
+- `select_survivor`: prefer longer canonical name ("Dr Watson" beats "John")
+- `synonym_criteria`: lower threshold than medical (around 0.75) -- literary
+  circumlocutions are semantically looser than biomedical synonyms
+- `resolve_batch`: optional extension for holistic clustering ("my client" is
+  ambiguous in isolation, obvious in context of the full label set for a story)
 
-An authoritative ontology\index{authoritative ontology} provides four things: a stable identifier
-that does not change when the entity's preferred name changes; a canonical
-name and known synonyms that the identity resolution system consults; a
-position in a relational structure that the graph inherits on anchoring; and
-community trust -- a human organization accountable for the data's quality
-over time.
+### 4.3 The medical domain service
 
-A canonical ID drawn from such an authority is not just a unique key. It is
-a claim that this entity has been placed in the epistemic commons\index{epistemic commons} of its
-domain -- named by people who know the domain, cross-referenced against
-adjacent knowledge, and assigned a position in the community's shared
-understanding. That placement is inherited by any graph that anchors to the
-same identifier.
+> **[Placeholder -- design sketched, not yet implemented]**
 
-### URIs as Stable Referents
+- `resolve_authority`: MeSH/UMLS API lookup (deterministic, no LLM)
+- `select_survivor`: prefer the ontology's preferred label; fall back to most
+  specific name
+- `synonym_criteria`: higher threshold -- "IL-6" and "interleukin-6" should
+  merge; "IL-6" and "IL-8" should not
+- `resolve_batch`: largely unnecessary -- ontology linkage handles what
+  clustering would otherwise do
 
-The cleanest implementation of this idea is the one the web already provides.
-A URI is globally unique, syntactically unambiguous, and -- for the right
-sources -- stable. Two systems that use the same URI for the same entity
-agree on the referent without coordination.
+### 4.4 What the contrast reveals
 
-Wikidata\index{Wikidata} exploits this directly. Every entity has a stable URI of the
-form `https://www.wikidata.org/entity/Q{n}`. These URIs are dereferenceable,
-stable, and broadly scoped. They cross-reference to identifiers in other
-authoritative systems, making Wikidata a practical hub for navigating between
-identifier spaces. Wikipedia article URLs serve a similar function: a system
-that uses the Wikipedia URL for an entity as its canonical ID agrees on the
-referent with any other system that does the same, without negotiation.
+**The wall works.** Every surprise in the Holmes pipeline lived inside the
+domain service; the identity server core and all pipeline stages were untouched.
 
-### Domains Without Official Authoritative Ontologies
+**The `resolve_batch` extension is Holmes-specific.** It is a Holmes-specific
+optimization driven by the property that batch clustering is better than per-
+mention resolution for literary text. It is an extension to the contract, not a
+change to it.
 
-Medicine, chemistry, and biology have mature authoritative ontologies built
-over decades by large professional communities. Most domains do not. A graph
-built over legal case law, historical correspondence, or literary fiction has
-no MeSH to consult. The entities in those domains have not been enumerated by
-any standards body.
+**The synonym threshold is domain-specific knowledge.** Medical literature needs
+a tighter threshold; literary text needs a looser one.
 
-This is not a reason to abandon canonical identity. It is a reason to be
-clear about what "authoritative" means in each domain. In domains without
-official ontologies, authority is assembled from whatever stable,
-community-maintained resources exist. The assessment criteria are the same:
-Does it cover the entities this graph needs? Are its identifiers stable? Is
-there a community behind it with an interest in maintaining it?
+**Scaling characteristics differ.** The Holmes domain service makes many LLM
+calls relative to entity count; the medical service makes almost none for a warm
+cache.
 
-### The Baker Street Wiki as Domain AO
+### 4.5 When the ontology changes
 
-The Baker Street Wiki\index{Baker Street Wiki} -- hosted at `bakerstreet.fandom.com` -- is the
-most comprehensive publicly available reference for the Sherlock Holmes
-canonical stories. Assessing it as an authoritative ontology requires three
-criteria: coverage, stability, and identifier structure.
+The domain spec carries a version field. The identity server records which
+schema version was active when each edge was ingested.
 
-**Coverage** is strong for the canonical stories. Every named character of
-any significance in the sixty stories has an article. Major locations --
-Baker Street itself, Baskerville Hall, the Reichenbach Falls -- are
-documented in detail. Significant objects have entries. Coverage thins for
-truly minor figures: an unnamed constable who appears in a single scene, a
-landlady mentioned once. These become provisional entities regardless of
-which AO is chosen.
+**Deprecated predicates** are flagged, not deleted. Edges using a deprecated
+predicate are marked and routed to a review queue. Actual removal is a
+deliberate, logged operation.
 
-**Stability** is adequate. Fandom wikis do not guarantee identifier
-permanence in the way Wikidata does, and the history of fan wikis includes
-migrations and reorganizations. The Baker Street Wiki has been stable at
-its current domain long enough to constitute a reasonable bet, and its
-article titles -- which drive URL structure -- are unlikely to change for
-entities as well-documented as Holmes, Watson, and Irene Adler. The risk
-is manageable: the domain service can maintain a mapping from Baker Street
-Wiki URLs to local identifiers, so that if a URL changes, the update is
-made once and propagates automatically.
+**Tightened constraints** produce migration items, not errors. An edge valid
+under schema version 2.1 but violating version 2.3 is a migration item --
+"this edge became malformed because the schema tightened" -- distinct from an
+extraction error.
 
-**Identifier structure** is clean. A Baker Street Wiki URL takes the form
-`https://bakerstreet.fandom.com/wiki/{Article_Title}`, where the article
-title is the canonical name with spaces encoded as underscores. The URL for
-Sherlock Holmes is `https://bakerstreet.fandom.com/wiki/Sherlock_Holmes`.
-No opaque database keys, no session parameters, no content-delivery
-indirection. The identifier is the name, structured for machine consumption.
-
-The practical consequence is that each Holmes entity in the graph is
-assigned the URL of its Baker Street Wiki article as its canonical ID. The
-domain service's authority lookup constructs a candidate URL from the mention
-string and checks whether the article exists. The wiki's redirect structure
-provides synonym resolution: a query for "Holmes" redirects to
-"Sherlock\_Holmes," and the domain service follows the redirect.
-
-### Provisional Entities
-
-When the full lookup chain exhausts without a match, the identity server
-does not block. It mints a provisional entity\index{provisional entity}: a new graph node with
-a locally generated canonical ID, typed as specified by the extraction
-pipeline, and flagged as provisional. Provisional entities are full graph
-citizens -- full type constraints apply, edges can reference them, evidence
-accumulates. Promotion to canonical status occurs when evidence reaches a
-threshold or a later AO lookup succeeds. All edges referencing the old ID
-are updated; the graph does not require re-ingestion.
-
-The existence of provisional entities means the graph can be built
-incrementally, with honest uncertainty, without stalling on entities that
-cannot yet be resolved. The Holmes corpus has a finite entity population,
-and most of it is well-covered by the Baker Street Wiki. The provisional
-tail is small. But the architecture that handles it cleanly for Holmes
-handles it equally well for a domain where the AO covers thirty percent of
-the entities rather than ninety.
+**Predicate renaming** follows the deprecate-old, introduce-new pattern, with a
+migration script that records the transformation in the provenance record. The
+transformation is auditable after the fact.
 
 ---
 
-## Chapter 7: The Identity Server
+## Chapter 5: The Identity Server
 
 `\chaptermark{The Identity Server}`{=latex}
 
-### Extraction Produces Mentions, Not Entities
+### 5.1 What the identity server does
 
-The extraction pipeline reads unstructured text and produces structured
-output: subject, predicate, object, with the subject and object expressed
-as mention strings. "Holmes" appears as a subject string. "Baker Street"
-appears as an object string. These strings are not entities. They are
-references to entities -- references that may be ambiguous, inconsistent
-across passages, and duplicated across dozens of story chapters.
+The extraction pipeline reads unstructured text and produces structured output:
+subject, predicate, object, with subject and object expressed as mention
+strings. "Holmes" appears as a subject string. "Baker Street" appears as an
+object string. These strings are not entities. They are references to entities
+-- references that may be ambiguous, inconsistent across passages, and
+duplicated across dozens of story chapters.
 
-The graph needs nodes with canonical IDs. A node labeled "Holmes" and a
-node labeled "Mr. Holmes" are, to the graph, two different things unless
-something resolves them to the same identity. The extraction pipeline cannot
-do this resolution: it processes one passage at a time and has no memory
-of what it has already seen. The identity server\index{identity service} is the bridge.
+The identity server\index{identity server} is the bridge: it provides atomic
+`find-or-create` for canonical entities, a Redis read-through cache for high-
+throughput per-mention resolution, and embedding-based similarity search for
+automatic merge when entities exceed a threshold.
 
-### Why a Service, Not a Library
+### 5.2 Why a service, not a library
 
 The obvious alternative to a service is a library. A library would work
 correctly for a single-process pipeline running sequentially. It fails under
 the conditions where knowledge graph construction actually operates.
 
 Real ingestion pipelines run many workers in parallel. Worker A is processing
-chapter three of *The Hound of the Baskervilles*\index{Hound of the Baskervilles, The};
-worker B is processing chapter seven; both extract a mention of "Stapleton."
-Without a shared service, both may mint a new provisional entity for
-"Stapleton." The graph now has two provisional nodes for the same character,
-and the deduplication problem the identity system was supposed to solve has
-been re-created by the identity system itself.
+chapter three of *The Hound of the Baskervilles*; worker B is processing
+chapter seven; both extract a mention of "Stapleton." Without a shared service,
+both may mint a new provisional entity for "Stapleton." The graph now has two
+provisional nodes for the same character.
 
-A service with a database and advisory locking\index{advisory locking} solves this. When two
-workers race to create "Stapleton," exactly one wins; the other receives the
-same ID. Cross-process uniqueness is enforced by the service.
+A service with a database and advisory locking\index{advisory locking} solves
+this. When two workers race to create "Stapleton," exactly one wins; the other
+receives the same ID. Cross-process uniqueness is enforced by the service.
 
-### Entity Lifecycle
+### 5.3 When you need it
 
-Every entity has one of three statuses, and transitions are one-way.
+You need the identity server when:
 
-**Provisional**\index{provisional entity}: Created from a mention that did not match any known
-authority. Participates fully in the graph -- relationships reference it,
-evidence accumulates -- but flagged as unanchored.
+- **Concurrent ingestion** -- multiple workers processing documents in parallel;
+  entity resolution must be atomic across workers
+- **Multiple sources** -- entities appearing in both extracted JSONL and hand-
+  authored instances must resolve to the same canonical ID
+- **Long-running corpus** -- provisional IDs assigned in batch 1 may be
+  upgraded or merged by batch 100; the identity server tracks the full lifecycle
 
-**Canonical**\index{canonical entity}: Anchored to an external authority. Promotion from
-provisional to canonical happens when the lookup chain finds an authority
-match, either at creation time or later as more surface forms accumulate.
+You do not need it when:
 
-**Merged**\index{merged entity}: Absorbed into another entity. Merged entities retain their
-full history but are no longer active graph nodes. All relationships
-referencing a merged entity transparently resolve to the survivor. Merged
-status is terminal.
+- Single-document manual curation (the `scandal_instances.py` pattern)
+- Small, single-pass ingestion with no concurrency
+- Prototype or exploratory work where provisional IDs are acceptable final output
 
-Status transitions are immutable by design. The provenance audit trail is
-permanently trustworthy because every merge event is logged and its
-consequences are stable.
+### 5.4 The lookup chain
 
-### The Lookup Chain
+The lookup chain\index{lookup chain} applies resolution strategies in order,
+stopping when a match is found, ordered by cost.
 
-The lookup chain\index{lookup chain} applies resolution strategies in order, stopping when a
-match is found, ordered by cost.
+**Exact match.** The mention string is looked up verbatim in the synonym table.
+A single indexed database lookup. Handles all mentions that have been seen
+before in exactly this form -- the majority of cases in a large corpus.
 
-**Exact match**: The mention string is looked up verbatim in the synonym
-table. A single indexed database lookup. Handles all mentions that have been
-seen before in exactly this form -- the majority of cases in a large corpus
-being processed incrementally.
-
-**Fuzzy match**: The mention string is compared against all known surface
-forms using a string-similarity metric -- `rapidfuzz`\index{rapidfuzz} in the Graphwright
-implementation, fast enough to scan a synonym table of tens of thousands of
-entries in milliseconds. Handles abbreviations, misspellings, and minor
+**Fuzzy match.** The mention string is compared against all known surface forms
+using a string-similarity metric. Handles abbreviations, misspellings, and minor
 variations. "Sherlock Homes" resolves to Sherlock Holmes. A configurable
 threshold prevents false positives.
 
-**Embedding similarity**: The mention is embedded and compared against
-stored surface form embeddings via `pgvector`\index{pgvector} approximate nearest neighbor
-search. Catches semantic equivalence that string methods miss. Most
-expensive; reserved for cases the cheaper methods cannot handle.
+**Embedding similarity.** The mention is embedded and compared against stored
+surface form embeddings via approximate nearest neighbor search. Catches
+semantic equivalence that string methods miss. Most expensive; reserved for
+cases the cheaper methods cannot handle.
 
-**Authority lookup**: The domain service's `/resolve-authority` endpoint
-is called with the mention string and entity type. The domain service queries
-the Baker Street Wiki or whatever authority is configured for this domain.
-If successful, the canonical ID is added to the local synonym table for
-exact-match resolution on all future encounters.
+**Authority lookup.** The domain service's `resolve_authority` method is called
+with the mention string and entity type. If successful, the canonical ID is
+added to the local synonym table for exact-match resolution on all future
+encounters.
 
 If all four stages fail, a provisional entity is minted. The chain is ordered
 by cost, not sophistication. Embedding similarity is last because it is
-expensive, not because it is less accurate. Running it on every mention would
-be correct but wasteful.
+expensive, not because it is less accurate.
 
-### Advisory Locking in Postgres
+### 5.5 Entity lifecycle
 
-Before creating a new entity, the base server acquires a Postgres\index{Postgres} advisory
-lock keyed on the hash of `(mention, entity_type)`. The first worker acquires
-the lock, checks for an existing entity, finds none, creates one, and releases
-the lock. The second worker acquires the lock, checks for an existing entity,
-finds the one the first worker just created, and returns its ID without
+Every entity has one of three statuses, and transitions are one-way.
+
+**Provisional.**\index{provisional entity} Created from a mention that did not
+match any known authority. Participates fully in the graph -- relationships
+reference it, evidence accumulates -- but flagged as unanchored.
+
+**Canonical.**\index{canonical entity} Anchored to an external authority.
+Promotion from provisional to canonical happens when the lookup chain finds an
+authority match, either at creation time or later as more surface forms
+accumulate.
+
+**Merged.**\index{merged entity} Absorbed into another entity. Merged entities
+retain their full history but are no longer active graph nodes. All
+relationships referencing a merged entity transparently resolve to the survivor.
+Merged status is terminal.
+
+### 5.6 Advisory locking in Postgres
+
+Before creating a new entity, the base server acquires a Postgres\index{Postgres}
+advisory lock keyed on the hash of `(mention, entity_type)`. The first worker
+acquires the lock, checks for an existing entity, finds none, creates one, and
+releases the lock. The second worker acquires the lock, checks for an existing
+entity, finds the one the first worker just created, and returns its ID without
 creating a duplicate.
 
-Advisory locks are the right tool here rather than standard transactions
-because the resolution operation spans multiple queries -- a lookup, possibly
-an authority call, an insert, a cache update. Holding a transaction open
-across all of that would serialize concurrency more than necessary. Advisory
-locks scope the mutual exclusion to the logical operation and release as
-soon as the entity ID is determined.
+Advisory locks are the right tool here rather than standard transactions because
+the resolution operation spans multiple queries -- a lookup, possibly an
+authority call, an insert, a cache update. Holding a transaction open across all
+of that would serialize concurrency more than necessary.
 
-### Idempotency
+### 5.7 The identity server HTTP interface
 
-The identity server is designed to be called many times with the same
-arguments and produce the same result every time. Ingestion pipelines fail.
-A worker crashes halfway through a chapter, the batch is retried, and the
-identity server receives the same mentions it already processed. If the
-server is not idempotent, the retry produces different entity IDs and the
-graph is corrupted.
+`POST /resolve` is the primary operation. The caller supplies a mention string
+and an entity type; the server returns a canonical ID. The operation may mint a
+provisional entity -- that is a write, and it belongs on a POST. The endpoint
+is idempotent: repeated calls with the same arguments return the same ID.
 
-Idempotency is implemented at the database level, not in application logic.
-Entity creation is an upsert on `(mention, entity_type)`. Merge is checked
-against the merge log before executing. Every write operation follows the
-same pattern. The service is safe to retry unconditionally.
+`POST /promote` elevates a provisional entity to canonical status. The caller
+supplies the provisional entity ID and the canonical ID to assign. The caller
+supplies the canonical ID rather than the server computing it because authority
+lookup is domain knowledge that lives in the domain service.
 
-### Caching
+`POST /merge` declares two entities to be the same. The server calls the domain
+service's `select_survivor` method to determine which record survives, redirects
+all relationships from the non-survivor to the survivor, and marks the non-
+survivor as merged. Merge requires an explicit call rather than happening
+automatically because merges are irreversible.
 
-The base server keeps an LRU\index{LRU cache} cache keyed on `(mention, entity_type)` for
-resolved IDs. A mention that has already been resolved returns its canonical
-ID from memory without a database round-trip. The domain service keeps a
-long-TTL cache for authority API responses, so that repeated lookups of the
-same entity against the Baker Street Wiki do not generate redundant HTTP
-requests across ingestion runs. The `compute-confidence` endpoint is
-intentionally not cached: its inputs vary per call, the computation is
-cheap, and caching would add consistency complexity for no measurable gain.
-
-### The Identity Server HTTP Interface
-
-`POST /resolve` is the primary operation. The caller supplies a mention
-string and an entity type; the server returns a canonical ID. The operation
-may mint a provisional entity -- that is a write, and it belongs on a POST.
-The endpoint is idempotent: repeated calls with the same arguments return
-the same ID.
-
-`POST /promote` elevates a provisional entity to canonical status. The
-caller supplies the provisional entity ID and the canonical ID to assign.
-The caller supplies the canonical ID rather than the server computing it
-because authority lookup is domain knowledge that lives in the domain
-service. Responsibility stays where the knowledge lives. Promotion is logged.
-
-`POST /merge` declares two entities to be the same. The server calls the
-domain service's `/select-survivor` endpoint to determine which record
-survives, redirects all relationships from the non-survivor to the survivor,
-and marks the non-survivor as merged. Merge requires an explicit call rather
-than happening automatically because merges are irreversible. A fuzzy match
-that was close but wrong would corrupt the graph permanently if it triggered
-an automatic merge.
-
-`GET /entity/{id}` returns the full record for an entity: current status,
-all known surface forms, the full provenance audit trail, composite
-confidence, and -- if canonical -- the authority name and ID. For inspection
-and debugging, not for the ingestion hot path.
-
-`GET /schema` returns the domain spec as JSON. The server fetches this from
-the domain service at startup and re-fetches it when the schema version
-changes.
+`GET /entity/{id}` returns the full record for an entity: current status, all
+known surface forms, the full provenance audit trail, and -- if canonical -- the
+authority name and ID.
 
 ---
 
-## Chapter 8: The Domain Service
+## Chapter 6: Querying -- The Payoff
 
-`\chaptermark{The Domain Service}`{=latex}
+`\chaptermark{Querying -- The Payoff}`{=latex}
 
-### What the Domain Service Owns
+The graph is only useful if you can ask it questions. This chapter walks through
+the `ner_20260608` graph API in depth, with worked examples from the Holmes
+corpus. The five-minute introduction comes first; the deeper worked example and
+specialized query patterns follow.
 
-The domain service is the boundary between the domain-agnostic identity
-server and the actual knowledge of a specific domain. Everything that
-varies from one deployment to the next lives here: the entity type
-enumeration, the predicate list, the choice of which authoritative ontology
-to consult, synonym thresholds, survivor selection logic, and confidence
-weight tables.
+### 6.1 Five-minute introduction
 
-Keeping domain knowledge out of the base server is not organizational
-tidiness. It is what makes the system reusable. A base server containing no
-domain assumptions can be deployed for a new domain by writing a new domain
-service, not by modifying the core. Domain logic that leaks into the core
-creates maintenance debt that compounds with every new deployment.
+```python
+from ner_20260608 import load_bohemia_graph
 
-### Python as the Spec Language
+g = load_bohemia_graph()  # loads bundled JSONL, ~100ms
 
-The domain spec is a Python module named `domain_spec.py`\index{domain\_spec.py}, not a YAML or
-JSON configuration file. The choice is deliberate. A configuration file can
-express data. A Python module can express logic: it can define the entity
-type enum, instantiate frozen Pydantic models for each predicate, declare
-validation functions, and compute derived values -- all in the same file,
-all testable with standard tooling, all readable by any Python developer.
+# Direct lookup -- wiki: prefix or full URL both work
+holmes = g.get("wiki:Sherlock_Holmes")
+print(holmes)       # Sherlock Holmes
+print(repr(holmes)) # Person('wiki:Sherlock_Holmes')
 
-The module round-trips to JSON for the `GET /schema` endpoint. The Python
-module is the source of truth; the JSON is a derived representation for wire
-transport. Changing the schema means editing `domain_spec.py`. There is one
-place to look.
+# describe() delegates to str()
+print(g.describe("wiki:Irene_Adler"))  # Irene Adler
 
-### The Plugin Contract
+# Who does Watson know (asserted true)?
+edges = g.edges_from(
+    "wiki:John_Watson", truth="asserted_true"
+)
+g.print_edges(edges)
+# → Knows(Dr. Watson → Sherlock Holmes)  [asserted_true]
+```
 
-The domain service implements exactly four endpoints that the base server
-calls:
+### 6.2 Evidence assembly just before the revelation
 
-`POST /resolve-authority` -- given a mention and entity type, query the
-domain's authoritative ontology and return a canonical ID if found. For the
-Holmes domain this queries the Baker Street Wiki.
+This example builds a temporally-bounded subgraph -- everything up to but not
+including the moment Holmes reveals the photograph's location -- and shows what
+evidence is available to support the conclusion.
 
-`POST /select-survivor` -- given two entity records, return the one that
-should survive a merge. For Holmes: prefer canonical over provisional; if
-both are canonical, prefer the one with more evidence records; if equal,
-prefer the older creation timestamp.
+> **What this example does and does not do.** The code below assembles the
+> evidence base: it shows which facts in the pre-cutoff graph bear on the
+> question of who has the photograph. It does *not* mechanically derive
+> `Possesses(Irene, photograph)` as a new statement -- that would require a
+> rule (in the `Rule(phi => psi)` sense from the Appendix) and an inference engine
+> to fire it. Step 5 verifies the conclusion using the full graph, which is a
+> spoiler check, not a proof.
 
-`POST /compute-confidence` -- given a list of evidence records, return a
-composite confidence score. The domain service supplies the weights; the
-base server handles the arithmetic.
+**The scene:** Holmes and Watson have just walked away from Briony Lodge after
+the staged fire alarm. Watson asks: *"You have the photograph?"* Holmes replies:
+*"I know where it is."* That exchange is sentence 485--486. We stop the graph
+one sentence before it.
 
-`GET /synonym-criteria` -- return the thresholds the identity server should
-use when deciding whether two mentions are synonyms. Supports per-entity-type
-overrides: gene symbols in a biomedical corpus need high precision
-(fuzzy threshold 0.95) to prevent "BRCA1" from matching "BRCA2."
+#### Step 1 -- build the pre-revelation subgraph
 
-Four endpoints, not more. These are the four decisions that vary by domain.
-A small contract surface means the contract is auditable in five minutes and
-the domain service is easy to test in isolation.
+```python
+from ner_20260608 import load_bohemia_graph
+from ner_20260608.holmes_schema import Possesses, Involves
 
-### When the Ontology Changes
+CUTOFF = 485  # sentence 485: "You have the photograph?"
 
-The domain spec carries a version field. The identity server records which
-schema version was active when each edge was ingested.
+pre = load_bohemia_graph(sentence_cutoff=CUTOFF, warn=False)
+# sentence_cutoff is exclusive: triplets included only when
+# max(sentence_ids) < CUTOFF.
+```
 
-**Deprecated predicates** are flagged, not deleted. Edges using a deprecated
-predicate are marked with a `deprecated_predicate` flag and routed to a
-review queue. Actual removal is a deliberate, logged operation.
+#### Step 2 -- what does the subgraph say Irene Adler possesses?
 
-**Tightened constraints** produce migration items, not errors. An edge valid
-under schema version 2.1 but violating version 2.3 is a migration item --
-"this edge became malformed because the schema tightened" -- distinct from
-an extraction error. The linter distinguishes between the two.
+```python
+irene_possesses = pre.edges_from(
+    "wiki:Irene_Adler",
+    pred_type=Possesses,
+    truth="asserted_true",
+)
+print([e.object_.display_name for e in irene_possesses])
+# → ["Irene Adler's purse", "Irene Adler's watch"]
+```
 
-**Predicate renaming** follows the deprecate-old, introduce-new pattern, with
-a migration script that moves existing edges and records the transformation
-in the provenance record. The transformation is auditable after the fact.
+The photograph is absent. The subgraph contains no `Possesses` statement linking
+Irene to the photograph -- that statement only appears at sentence 511, after
+Holmes observes her reach for it during the smoke-rocket alarm.
 
----
+#### Step 3 -- trace the photograph evidence chain
 
-## Chapter 9: Validation and the Graph Linter
+Even without the possession statement, the subgraph holds three events
+connecting Irene to the photograph:
 
-`\chaptermark{Validation and the Graph Linter}`{=latex}
+```python
+photo_events = [
+    e.subject
+    for e in pre.edges_to(
+        "wiki:Irene_Adler",
+        pred_type=Involves,
+        truth="asserted_true",
+    )
+    if "photograph" in e.subject.description.lower()
+]
+for ev in photo_events:
+    print(repr(ev))
+    print(" ", ev.description)
+```
 
-### Two Enforcement Points
+These three events establish: (1) the photograph exists and Irene has it; (2)
+Irene intends to use it as leverage; (3) Holmes has already reasoned that she
+keeps it hidden at home, not on her person.
 
-The insertion path enforces constraints at write time: every triple that
-enters the graph has passed a sequence of gates. The graph linter is a
-separate tool that audits the graph after the fact.
+#### Step 4 -- the plan execution events
 
-The two enforcement points are complementary, not redundant. Insertion-time
-checks protect against new violations. The linter catches cross-edge
-consistency issues invisible at single-write time: a contradiction between
-two edges inserted in separate pipeline runs, a provenance gap in data
-that predates a stricter provenance requirement, an edge valid under an
-older schema version now violating the current one. The linter also serves
-as a CI gate on ingestion batches: run it before a batch lands and reject
-the batch if violations exceed a threshold. This is the compiler-pass model
-applied to graph data.
+```python
+plan_event_ids = {
+    "sib:event:holmes_explains_plan_to_watson",
+    "sib:event:holmes_watson_pace_briony_lodge",
+    "sib:event:holmes_feigns_injury",
+    "sib:event:irene_tends_to_injured_holmes",
+    "sib:event:holmes_signals_need_for_air",
+    "sib:event:watson_tosses_smoke_rocket",
+    "sib:event:holmes_declares_false_alarm",
+    "sib:event:watson_rejoins_holmes",
+}
 
-### How a Proposed Triple Is Accepted or Rejected
+executed = [
+    e.subject
+    for e in pre.edges_to(
+        "wiki:Sherlock_Holmes",
+        pred_type=Involves,
+        truth="asserted_true",
+    )
+    if e.subject.id in plan_event_ids
+]
+print(f"{len(executed)} plan events confirmed in subgraph")
+# → 7 plan events confirmed in subgraph
+```
 
-Every proposed triple passes through four gates, each asking a different
-question.
+Seven of the eight plan-execution events are reachable via Holmes's Involves
+edges. A rule-based inference engine with the right `Rule(phi => psi)` declaration
+could derive `Possesses(Irene, photograph)` from this evidence -- but none
+exists yet.
 
-**Entity type check**: does the subject ID correspond to a known entity, and
-does that entity's type match the predicate's domain?
+#### Step 5 -- confirm with the full graph (spoiler check)
 
-**Predicate vocabulary check**: is this predicate defined in the domain spec?
-A predicate that does not appear in the spec does not exist. The triple is
-not stored with a flag; it is rejected.
+```python
+full = load_bohemia_graph(warn=False)
 
-**Domain/range check**: do the subject and object entity types fall within
-the predicate's declared domain and range? This is the gate that catches
-category errors. The schema knows the domain and range; it does not need
-to inspect the content of the entities.
+full_possesses = full.edges_from(
+    "wiki:Irene_Adler",
+    pred_type=Possesses,
+    truth="asserted_true",
+)
+print([e.object_.display_name for e in full_possesses])
+# → ["Irene Adler's purse", "Irene Adler's watch",
+#    "Irene Adler's photograph", "male costume"]
+```
 
-**Provenance completeness check**: does the proposed triple carry a
-provenance record, and does that record contain the required fields per
-the domain spec? Required fields are per-predicate. An edge without a
-required provenance field is not a weak claim -- it is a malformed record.
+### 6.3 Interesting queries
 
-### What the Linter Checks
+#### All people Holmes is connected to (2 hops)
 
-The linter's rule set is derived entirely from the domain spec at runtime.
-There are no hardcoded rules. Every predicate's domain, range, provenance
-requirement, `is_functional` flag, and `inverse_of` pairing generates checks
-automatically. Adding a predicate to the spec automatically extends lint
-coverage to it.
+```python
+from ner_20260608 import load_bohemia_graph
+from ner_20260608.holmes_schema import Person
 
-**Predicate vocabulary violations**: the graph contains an edge with a
-predicate name not in the current spec.
+g = load_bohemia_graph()
+layers = g.bfs(["wiki:Sherlock_Holmes"], max_hops=2)
+for i, layer in enumerate(layers):
+    print(f"hop {i}: {len(layer)} nodes")
 
-**Domain/range violations**: an edge's subject or object entity type does
-not satisfy the predicate's declared constraint.
+all_ids = set().union(*layers)
+people = [
+    g.get(eid) for eid in all_ids
+    if isinstance(g.get(eid), Person)
+]
+print([p.display_name for p in people if p])
+```
 
-**Provenance gaps**: an edge is missing a required provenance field.
+#### Events involving Irene Adler
 
-**Unacknowledged contradictions**: two edges that logically conflict. For
-`Functional` predicates, two different objects for the same subject. For
-`inverse_of` predicate pairs, both `activates(A, B)` and `inhibits(A, B)`
-existing between the same entity pair without a conflict record.
+```python
+from ner_20260608.holmes_schema import Involves, Event
 
-### Violation Structure
+irene_events = g.edges_to(
+    "wiki:Irene_Adler", pred_type=Involves
+)
+for e in irene_events:
+    ev = g.get(e.subject.id)
+    if isinstance(ev, Event):
+        print(ev.description)
+```
 
-Each violation is a typed, structured record:
+#### Transitive location -- 221B Baker Street is in London
+
+The LLM-extracted JSONL graph has sparse `LocatedIn` coverage. The manual
+instance graph in `scandal_instances.py` has the full geographic chain.
+
+> **Note:** `scandal_instances.py` lives in the source repo under `src/` and is
+> not shipped in the wheel. Clone the repo and add `src/` to `sys.path`, or run
+> from the repo root with `pdm run python`.
+
+```python
+import scandal_instances as si
+from ner_20260608.graph import Graph
+from ner_20260608.holmes_schema import LocatedIn
+
+g_manual = Graph.from_module(si)
+reachable = g_manual.transitive_closure(
+    "wiki:221B_Baker_Street", LocatedIn
+)
+print(reachable)  # {'wiki:London'}
+```
+
+#### Epistemic query -- what did Watson know, and when?
+
+```python
+from ner_20260608.holmes_schema import KnewAt, TruthStatus
+
+knew_edges = [
+    inst for inst in g.by_id.values()
+    if isinstance(inst, KnewAt)
+    and inst.subject.id == "wiki:John_Watson"
+    and inst.truth_status == TruthStatus.ASSERTED_TRUE
+]
+
+for k in knew_edges:
+    stmt = g.describe(k.object_.id)
+    when = k.moment.label if k.moment else "unknown moment"
+    print(f"Watson knew [{stmt}] at [{when}]")
+```
+
+#### Subgraph export -- serialize neighbors to JSON
+
+```python
+import json
+from ner_20260608.holmes_schema import BaseStatement
+
+def subgraph_json(g, seed_ids, max_hops=2):
+    layers = g.bfs(seed_ids, max_hops=max_hops)
+    all_ids = set().union(*layers)
+    nodes, edges = [], []
+    for eid in all_ids:
+        inst = g.get(eid)
+        if inst is None:
+            continue
+        if isinstance(inst, BaseStatement):
+            edges.append({
+                "id": inst.id,
+                "type": type(inst).__name__,
+                "subject": inst.subject.id,
+                "object": inst.object_.id,
+                "truth_status": inst.truth_status.value,
+            })
+        else:
+            nodes.append({
+                "id": inst.id,
+                "type": type(inst).__name__,
+                "label": str(inst),
+            })
+    return json.dumps(
+        {"nodes": nodes, "edges": edges}, indent=2
+    )
+
+print(subgraph_json(g, ["wiki:Irene_Adler"]))
+```
+
+### 6.4 Writing pytest tests
+
+#### Smoke tests against the bundled graph
+
+```python
+# tests/test_smoke.py
+import pytest
+from ner_20260608 import load_bohemia_graph
+from ner_20260608.holmes_schema import Person, Knows, TruthStatus
+
+
+@pytest.fixture(scope="session")
+def g():
+    return load_bohemia_graph(warn=False)
+
+
+def test_graph_non_empty(g):
+    assert len(g.by_id) > 50
+
+
+def test_holmes_exists(g):
+    assert g.get("wiki:Sherlock_Holmes") is not None
+
+
+def test_watson_knows_holmes(g):
+    edges = g.edges_from(
+        "wiki:John_Watson",
+        pred_type=Knows,
+        truth="asserted_true",
+    )
+    targets = {e.object_.id for e in edges}
+    assert "wiki:Sherlock_Holmes" in targets
+
+
+def test_bfs_reaches_irene(g):
+    layers = g.bfs(["wiki:Sherlock_Holmes"], max_hops=3)
+    all_ids = set().union(*layers)
+    assert "wiki:Irene_Adler" in all_ids
+```
+
+#### Unit tests with synthetic fixture graphs
+
+```python
+# tests/conftest.py
+import pytest
+from ner_20260608.graph import Graph
+from ner_20260608.holmes_schema import (
+    Person, Knows, TruthStatus,
+)
+
+_PROV = dict(
+    story_id="test",
+    paragraph_index=0,
+    extraction_method="manual",
+    extraction_confidence=1.0,
+)
+
+
+@pytest.fixture(scope="module")
+def trio():
+    """Holmes knows Watson (true) and Irene (false)."""
+    holmes = Person(
+        id="wiki:Sherlock_Holmes",
+        display_name="Sherlock Holmes",
+    )
+    watson = Person(
+        id="wiki:John_Watson",
+        display_name="John Watson",
+    )
+    irene = Person(
+        id="wiki:Irene_Adler",
+        display_name="Irene Adler",
+    )
+    k_hw = Knows(
+        id="stmt:hw", subject=holmes, object_=watson,
+        truth_status=TruthStatus.ASSERTED_TRUE, **_PROV,
+    )
+    k_hi = Knows(
+        id="stmt:hi", subject=holmes, object_=irene,
+        truth_status=TruthStatus.ASSERTED_FALSE, **_PROV,
+    )
+    return Graph([holmes, watson, irene, k_hw, k_hi])
+
+
+def test_truth_filter_keeps_only_true(trio):
+    edges = trio.edges_from(
+        "wiki:Sherlock_Holmes", truth="asserted_true"
+    )
+    assert len(edges) == 1
+    assert edges[0].object_.id == "wiki:John_Watson"
+```
+
+### 6.5 MCP wrapper
+
+Expose the graph as an MCP server\index{MCP} so Claude (or any MCP client) can
+query it via tool calls.
+
+```python
+# bohemia_mcp.py
+from mcp.server.fastmcp import FastMCP
+from ner_20260608 import load_bohemia_graph
+from ner_20260608.holmes_schema import BaseStatement
+
+mcp = FastMCP("bohemia-graph")
+_g = None
+
+
+def _graph():
+    global _g
+    if _g is None:
+        _g = load_bohemia_graph(warn=False)
+    return _g
+
+
+@mcp.tool()
+def describe_entity(entity_id: str) -> str:
+    """Return a one-line description of any entity."""
+    return _graph().describe(entity_id)
+
+
+@mcp.tool()
+def edges_from(
+    entity_id: str, truth: str = "asserted_true"
+) -> list[dict]:
+    """Return all outward edges from entity_id."""
+    edges = _graph().edges_from(entity_id, truth=truth)
+    return [
+        {
+            "id": e.id,
+            "predicate": type(e).__name__,
+            "object": e.object_.id,
+            "truth_status": e.truth_status.value,
+        }
+        for e in edges
+    ]
+
+
+@mcp.tool()
+def bfs(
+    seed_ids: list[str], max_hops: int = 2
+) -> list[list[str]]:
+    """BFS from seed_ids. Returns one list per hop."""
+    layers = _graph().bfs(seed_ids, max_hops=max_hops)
+    return [sorted(layer) for layer in layers]
+
+
+if __name__ == "__main__":
+    mcp.run()
+```
+
+Register it in your Claude Code MCP config:
 
 ```json
 {
-  "violation_type": "DOMAIN_RANGE_MISMATCH",
-  "severity": "ERROR",
-  "edge_id": "edge_789",
-  "subject_type": "Person",
-  "predicate": "occurred_at",
-  "object_type": "Location",
-  "message": "Predicate 'occurred_at' requires object type 'Moment'; got 'Location'.",
-  "remediation": "Check entity resolution for object node."
+  "mcpServers": {
+    "bohemia": {
+      "command": "python",
+      "args": ["bohemia_mcp.py"]
+    }
+  }
 }
 ```
 
-Severity levels are `ERROR`, `WARNING`, and `INFO`. Output is JSONL\index{JSONL}: one
-JSON object per line. JSONL is composable without parsing overhead: pipe it
-into a dashboard, filter by severity with `jq`, load it into a review queue,
-fail a CI step if the error count exceeds a threshold.
+### 6.6 Adding a predicate to the schema
 
-### Conflict Records as First-Class Data
+Add the class to `holmes_schema.py`:
 
-When the linter finds a contradiction, it emits a conflict record\index{conflict record}: a
-structured object naming both edges, identifying the conflict type, and
-recording whether the conflict has been acknowledged and resolved.
+```python
+class Employs(BaseStatement, ProvenanceMixin):
+    """Person employs another Person."""
+    subject: Person
+    object_: Person
+```
 
-The graph is richer for containing the dispute than for suppressing it.
-Contradiction is information, not failure. In a scientific corpus, genuine
-disagreement between sources is common. In the Holmes corpus, a story may
-contain a claim that a later story retcons. Representing these disputes
-explicitly, as first-class records linked to the edges involved, allows the
-graph to model the actual state of knowledge in the corpus -- including the
-contested parts -- without sacrificing structural integrity.
+Two mechanisms must both see the new class:
 
----
+1. **`model_rebuild()` loop** (bottom of `holmes_schema.py`) -- Pydantic
+   requires this to resolve forward references. Omitting it causes
+   `ValidationError` at construction time, not import time.
 
-# Part V: Trustworthiness
+2. **`_PREDICATE_CLASSES` scan** (`loader.py`) -- built automatically at
+   import time by scanning `holmes_schema` for `BaseStatement` subclasses.
+   No manual step needed.
 
-## Chapter 10: Provenance as Architecture
-
-`\chaptermark{Provenance as Architecture}`{=latex}
-
-### Provenance Is Not Optional
-
-In high-stakes domains -- medicine, law, materials safety -- every claim in a
-knowledge graph must be traceable to its source. This is not a feature that
-can be added later. It is a structural requirement that shapes the data model,
-the extraction output format, the ingest stage, the confidence aggregation
-logic, and the query interface. Adding provenance to an existing graph means
-touching every relationship record. Getting it right from the start costs
-almost nothing. Getting it wrong costs a full re-extraction.
-
-The phrase "architectural" is precise. Provenance that lives in a side table,
-optional and sparsely populated, is not provenance in any meaningful sense --
-it is an audit log that nobody reads. Provenance that is required by the
-schema, enforced at insertion time, and checked by the linter is
-architecture: a constraint the system upholds unconditionally, not a field
-that well-intentioned engineers fill in when they remember to.
-
-### What a Provenance Record Contains
-
-A complete provenance record for a Holmes edge contains the story title and
-publication date, the chapter and paragraph index pointing to the specific
-passage, the extraction method (which model, which prompt version), and the
-confidence assigned to that specific piece of evidence.
-
-The passage locator is the most important field for human verification. It
-is not sufficient to know that an edge came from *A Scandal in Bohemia*; the
-reader who wants to verify the claim needs to find the sentence. A paragraph
-index makes that possible. An extraction log that records only the document
-is attributable but not traceable.
-
-The extraction method field serves reproducibility. If a claim needs to be
-re-extracted because the original extraction is suspected to be wrong, the
-provenance record tells you which model and prompt produced it. You can re-
-run with the same configuration, compare the output, and determine whether
-the original extraction was an error or a correct reading of an ambiguous
-passage.
-
-### Confidence Is Computed, Not Assigned
-
-Confidence scores on edges are not the opinion of the extraction model about
-how certain it feels. They are computed values derived from evidence quality
-and evidence count, using a weight table the domain service declares.
-
-A single passage asserting that Holmes maintained lodgings at Baker Street
-warrants a moderate confidence score. The same assertion appearing
-independently in a dozen stories warrants a higher score -- not because the
-later extractions are individually stronger, but because independent
-corroboration is itself evidence. The identity server aggregates these via
-`POST /compute-confidence`. The domain service supplies the weights; the
-base server handles the arithmetic.
-
-This matters for multi-hop reasoning. A chain of three inferences, each at
-0.9 confidence, produces a chain confidence of 0.73 by simple multiplication.
-That arithmetic is possible because each step's confidence is a computed
-value with a defined meaning. A cosine similarity score cannot be composed
-this way: it has no principled relationship to probability, and scores from
-different steps cannot be multiplied to produce a meaningful compound value.
-
-### Typed Provenance
-
-Because predicates are finite and typed, provenance completeness is
-checkable. The domain spec declares, per predicate, what a complete
-provenance record must contain. The linter checks every edge of every
-predicate type against that requirement. Incompleteness is not a silent gap
--- it is a detectable violation with a severity level and a remediation
-suggestion.
-
-An edge of predicate `disguised_as` might require a passage locator and an
-extraction confidence. An edge of predicate `treats` in the medlit schema
-requires those plus `evidence_level` and `assertion_type`. The requirements
-are per-predicate because the nature of the claim determines what evidence
-is needed to warrant it.
-
-### Multi-Source Claims
-
-When the same relationship appears in multiple independent passages, the
-identity server aggregates the evidence. Five extractions of "Holmes
-associated_with 221B Baker Street" from five different stories produce one
-edge with five provenance records attached. The composite confidence is
-computed from all five. The audit trail shows all five sources. A query that
-asks for the evidence behind a claim returns a structured list: five stories,
-five paragraphs, five extraction runs. The graph does not flatten this into
-a single score and discard the detail. The detail is the trustworthiness.
+The only manual step is adding `Employs` to the `model_rebuild()` list.
 
 ---
 
-## Chapter 11: Making Bad Ideas Inexpressible
+## Chapter 7: Production Scale
 
-`\chaptermark{Making Bad Ideas Inexpressible}`{=latex}
+`\chaptermark{Production Scale}`{=latex}
 
-### Hilbert's Dream
+> **This chapter is a placeholder. The production architecture is sketched
+> here; it has not been implemented or tested.**
 
-At the turn of the twentieth century, David Hilbert\index{Hilbert, David} proposed a program for
-mathematics: find a formal system in which every true statement could be
-proved and, crucially, no false or meaningless statement could even be
-constructed. He wanted a system where bad mathematics was not just
-discouraged -- it was *inexpressible*.\index{inexpressible} Kurt Gödel\index{Gödel, Kurt} showed
-in 1931 that this is impossible for mathematics in general: any sufficiently
-powerful formal system is either incomplete or inconsistent.
+### 7.1 The SQS / ECS worker pattern
 
-For a domain-constrained typed graph, the situation is different. We are not
-trying to represent all of human knowledge. We are trying to represent a
-finite, agreed-upon set of claims about a specific domain -- Holmes stories,
-biomedical literature, legal case law. In that narrower space, the boundary
-Hilbert wanted is achievable. The finite predicate vocabulary is that
-boundary. A predicate not in the schema does not exist. A type combination
-violating a declared domain or range cannot be expressed. The constraint is
-not a runtime check that fires when someone tries to insert bad data -- it
-is a structural property of the system that makes certain data
-unrepresentable in the first place.
+Documents arrive on an SQS queue; ECS workers consume and process them through
+the five pipeline stages. The identity server is an independently scalable
+service that all workers call synchronously. The pipeline stages are stateless
+transforms over JSONL; any worker can pick up any document.
 
-### What Becomes Inexpressible
+### 7.2 Local inference at scale
 
-The typed graph makes four classes of error structurally inexpressible, one
-at each layer of the architecture.
+High-throughput batch inference for NER and triplet extraction runs locally on
+a GPU machine (the G533 with an RX 9060 XT, in the current setup). Local for
+cost, not for latency. ROCm vs. CUDA considerations apply for Ollama-based
+local inference. Model size tradeoffs: `qwen2.5:14b` fits in 16GB VRAM for
+coref and triplet extraction. The G533 is suited for overnight batch runs;
+frontier cloud models handle the low-volume, high-reasoning passes.
 
-**Type-layer violations**: an edge whose subject or object entity type
-violates the predicate's declared domain or range cannot be inserted.
-"Aspirin treats BRCA1"\index{category error} -- a drug predicated against a gene using a
-disease predicate -- is not a low-confidence claim in the graph. It is an
-unrepresentable claim. The schema closes the vocabulary; what falls outside
-it cannot be expressed.
+### 7.3 Auto-scaling groups
 
-**Identity-layer violations**: an edge referencing an entity ID the identity
-server cannot resolve has no valid endpoint. The graph cannot contain a
-relationship to a thing it has no record of. Provisional entities are valid
-endpoints; truly unresolvable IDs are not.
+> **[Placeholder]**
 
-**Provenance-layer violations**: the domain spec declares, per predicate,
-what a complete provenance record must contain. An edge without a required
-provenance field is not a weak claim -- it is a malformed record that fails
-the insertion check. An unsigned assertion is not an assertion at all in a
-system that treats sourcing as structural rather than optional.
+### 7.4 Monitoring and audit
 
-**Consistency-layer violations**: a functional predicate can have at most
-one object per subject. A predicate and its `inverse_of` pair cannot both
-hold between the same entity pair without a conflict record acknowledging
-the dispute. Unacknowledged contradiction -- two edges logically incompatible,
-sitting silently in the graph -- is inexpressible.
+> **[Placeholder]**
 
-### The Functional Programming Analogy
-
-The slogan in statically typed functional programming is "make illegal states
-unrepresentable."\index{illegal states unrepresentable} In ML\index{ML (programming language)},
-Haskell\index{Haskell}, and Rust\index{Rust}, the type system is designed so that programs
-entering invalid states cannot be written. The invariant is enforced by the
-compiler, which refuses to produce a program that can reach the state at all.
-A null pointer exception is impossible in a language that has no null. A
-use-after-free error is impossible in a language whose ownership rules
-prevent it.
-
-A typed graph applies the same principle to knowledge claims. We do not write
-runtime checks that fire when a bad triple is inserted and then clean up the
-damage. We design a schema in which certain classes of bad triple cannot be
-formed. The domain spec is the type system. The insertion validation is the
-compiler pass. The graph that results from a successful insertion is, by
-construction, free of type-layer and provenance-layer violations -- not
-because we checked every edge after the fact, but because non-conforming
-edges were never representable.
-
-### Gödel's Honest Boundary
-
-The typed graph enforces structural well-formedness.\index{structural well-formedness} It does not
-enforce semantic correctness.\index{semantic correctness} A well-typed, well-sourced edge can
-still carry a false claim. An extraction pipeline that misread a passage,
-or a passage that was itself mistaken, can produce a triple that passes
-every gate and enters the graph as a valid claim. The schema does not
-adjudicate the world.
-
-This is not a defect. It is the honest limit of what formal structure can
-guarantee. The typed graph's job is to ensure that the claims it contains
-are well-formed, traceable, and internally consistent -- that they are the
-right *kind* of claim about the right *kind* of entities with a known
-*source*. Whether those claims are true is a question for domain experts,
-for replication across sources, for the confidence scores that aggregate
-evidence quality. The graph provides the structure that makes verification
-possible. It does not perform the verification itself.
-
-Gödel's result was about the limits of formal systems as truth machines.
-The typed graph does not aspire to be a truth machine. It aspires to be a
-trustworthy container for claims that humans and machines can reason over,
-verify, and dispute. That is a more modest goal, and it is achievable.
+Provenance as the audit surface: every claim is traceable to its source
+document and extraction pass. Disputed claim dashboards: when two papers produce
+conflicting claims about the same entity pair and predicate, the graph surfaces
+the conflict rather than silently overwriting.
 
 ---
 
 # Closing
 
-## Chapter 12: Bias, Limits, and Responsibility
+## Chapter 8: Bias, Limits, and Responsibility
 
 `\chaptermark{Bias, Limits, and Responsibility}`{=latex}
 
-### What the Graph Cannot Know
+### What the graph cannot know
 
 A knowledge graph built from a corpus knows only what that corpus contains.
 The Holmes stories were written by Arthur Conan Doyle between 1887 and 1927,
 from a particular cultural vantage point, with particular narrative choices
-about whose perspective is centered and whose is absent. The graph built from
-those stories inherits those choices. Watson's view of events is
-well-represented. Mrs. Hudson's\index{Hudson, Mrs.} is not.
+about whose perspective is centered and whose is absent. Watson's view of
+events is well-represented. Mrs. Hudson's\index{Hudson, Mrs.} is not.
 
-This is not a problem specific to fiction. A biomedical knowledge graph
-built from PubMed\index{PubMed} inherits the coverage biases of biomedical publishing:
+This is not a problem specific to fiction. A biomedical knowledge graph built
+from PubMed\index{PubMed} inherits the coverage biases of biomedical publishing:
 English-language journals are overrepresented; negative results are
 underrepresented; diseases that attract research funding are better covered
 than diseases that do not. The identity server cannot correct for absences
@@ -1831,280 +2058,468 @@ it cannot see.
 
 Coverage gaps create false negatives. A query returning no result for a
 relationship does not mean the relationship does not hold -- it means the
-corpus does not assert it. The distinction between "the relationship does
-not hold" and "the corpus has not asserted it" requires active communication
-to users of the graph. A system that presents silence as denial will mislead
-the people who rely on it.
+corpus does not assert it. The distinction between "the relationship does not
+hold" and "the corpus has not asserted it" requires active communication to
+users of the graph.
 
-### Bias Encoded at Scale
+### Bias encoded at scale
 
 Source biases propagate into the graph and are amplified by confidence
-weighting. If the Holmes stories describe Holmes's deductions in more detail
-than Watson's, the graph will have higher-confidence edges about Holmes's
-mental states than about Watson's. This is a faithful representation of
-what the corpus asserts. It is also a distortion of the underlying reality.
+weighting. Transparency is the available remedy, not elimination. The provenance
+architecture makes the evidence distribution visible: a query can retrieve not
+just a confidence score but the full list of source passages and their
+individual confidence values.
 
-Transparency is the available remedy, not elimination. The provenance
-architecture described in Chapter 10 makes the evidence distribution visible:
-a query can retrieve not just a confidence score but the full list of source
-passages and their individual confidence values. A user who sees that all
-five supporting passages for a claim are from a single story, told from a
-single character's perspective, can weigh that evidence accordingly. The
-graph does not do the weighing. It provides the data that makes weighing
-possible.
-
-### Capability Is Not Bounded by Intent
+### Capability is not bounded by intent
 
 A typed graph built for one purpose supports inferences its builders did not
-anticipate, because structure supports inference and inference does not
-respect the boundaries of intended use. A Holmes graph built to study
-narrative structure can be queried to identify characters who are
-systematically deceived. A medical graph built to support drug discovery
-can be queried to identify precursor compounds for controlled substances.
-A legal graph built to assist lawyers can be queried to identify patterns
-in judicial decisions that correlate with demographic factors.
+anticipate. A Holmes graph built to study narrative structure can be queried to
+identify characters who are systematically deceived. A medical graph built to
+support drug discovery can be queried to identify precursor compounds for
+controlled substances. A legal graph built to assist lawyers can be queried to
+identify patterns in judicial decisions that correlate with demographic factors.
 
-None of these are edge cases or failures. They follow directly from the
-system working as designed. The system is more powerful than any particular
-use case imagined for it, and that power does not turn off at the boundaries
-of the intended use case.
+None of these are edge cases or failures. They follow directly from the system
+working as designed. The builder's responsibility does not end at deployment.
 
-### The Builder's Responsibility
+### Who owns the graph
 
-Trustworthiness is not a one-time design choice. It is an ongoing commitment
-that extends past the point of deployment.
-
-Honesty about coverage limits means documenting what the corpus covers and
-what it does not, and surfacing that documentation at query time rather than
-burying it in a README. Infrastructure for verification means ensuring that
-provenance records are complete, that confidence computations are
-reproducible, and that the schema is legible to domain experts who need to
-understand what the graph can and cannot express. Consideration of
-foreseeable misuse means asking, before deployment, what traversals the
-graph enables that were not intended, and whether access controls or audit
-logging are warranted.
-
-The identity server architecture provides the infrastructure for all of
-this: every merge is logged, every promotion is logged, every confidence
-computation is reproducible from the provenance records, and the schema is
-a readable Python module rather than an opaque binary. The infrastructure
-for verification is built in. Using it -- treating it as a commitment rather
-than a compliance checkbox -- is the builder's responsibility.
-
-### Who Owns the Graph
-
-Open versus proprietary carries consequences for what the graph becomes and
-who benefits from it. GenBank\index{GenBank}, the public repository of genetic sequences,
-was built as a commons and shaped how molecular biology developed for
-decades. Any researcher, anywhere, could query it. The field advanced
-accordingly. Clinical trial data, by contrast, has often been held
-proprietary by sponsors; the consequences for public health have been
-documented and contested.
+Open versus proprietary carries consequences for what the graph becomes and who
+benefits from it. GenBank\index{GenBank}, the public repository of genetic
+sequences, was built as a commons and shaped how molecular biology developed for
+decades. Clinical trial data, by contrast, has often been held proprietary by
+sponsors; the consequences for public health have been documented and contested.
 
 A comprehensive typed graph over a scientific domain is a significant
-infrastructure investment, and whoever controls it controls what gets
-synthesized, what gets surfaced, and how the schema evolves. These are not
-neutral technical decisions. The governance question -- who owns the graph,
-who can query it, who can extend the schema, who can audit the ingestion --
-is worth answering deliberately before it is answered by default.
+infrastructure investment, and whoever controls it controls what gets synthesized,
+what gets surfaced, and how the schema evolves. The governance question -- who
+owns the graph, who can query it, who can extend the schema, who can audit the
+ingestion -- is worth answering deliberately before it is answered by default.
 
 The technology is neutral on governance. The builder is not.
 
----
-
-## Chapter 13: What This Makes Possible
+## Chapter 9: What This Makes Possible
 
 `\chaptermark{What This Makes Possible}`{=latex}
 
-### The Connective Tissue
+### The connective tissue
 
-The typed schema and canonical identity are connective tissue. The extraction
-pipeline calls the identity server to resolve every mention to a canonical
-ID before the claim enters the graph. The query layer relies on those
-canonical IDs to traverse the graph without ambiguity. The schema enforced
-at write time is the same schema the query layer uses to understand what a
-result means.
+Without canonical identity, the graph is a collection of strings. Without the
+typed schema, a collection of untyped triples. Without provenance, a collection
+of unsigned assertions. The three base vectors are connective tissue: they make
+the graph queryable, trustworthy, and composable.
 
-Without canonical identity, the graph is a collection of strings. Without
-the typed schema, a collection of untyped triples. Without provenance, a
-collection of unsigned assertions. This book has been about what it takes
-to have none of those problems.
+### Cross-domain reasoning
 
-### Cross-Domain Reasoning
+Shared canonical IDs let two graphs built independently compose automatically.
+A Holmes graph and a Victorian history graph, both anchoring their `Location`
+entities to Wikidata\index{Wikidata} URIs, can be traversed as a single graph: a query
+starting from Baker Street in the Holmes graph can follow an edge to a Wikidata
+node and continue into the history graph without any coordination between the
+teams that built each. The shared identifiers are the bridge.
 
-Shared canonical IDs let two graphs built independently compose
-automatically. A Holmes graph and a Victorian history graph, both anchoring
-their `Location` entities to Wikidata\index{Wikidata} URIs, can be traversed as a single
-graph: a query starting from Baker Street in the Holmes graph can follow an
-edge to a Wikidata node and continue into the history graph without any
-coordination between the teams that built each. The shared identifiers are
-the bridge.
+### Grounding LLM inference
 
-The typed schema ensures the composition is structurally coherent. When two
-graphs share a predicate vocabulary -- or when the predicate vocabularies
-have a declared mapping -- edges from one graph can be interpreted in the
-context of the other. Cross-graph reasoning requires shared semantics, not
-just shared IDs. The domain spec is where those semantics live.
+The difference between asking an LLM to reason from its training data and asking
+it to reason from a typed, provenance-tracked graph is qualitative, not
+quantitative. Training data is a frozen snapshot of text compressed into weights.
+It cannot be updated without retraining. Its sources cannot be cited.
 
-This composability is not a designed feature of any single system. It is an
-emergent property of the decision to anchor to shared authorities and declare
-a typed schema. The epistemic commons was built over decades for human use.
-The typed graph makes it available to machines in a form that carries its
-own warrant.
+A graph provides all of these things. The system retrieves the relevant subgraph
+and injects it into the model's context. The model reasons over that context.
+The answer is grounded in retrieved claims with known sources, not in training-
+data recall. When the graph is wrong, you fix the graph. You do not retrain the
+model.
 
-### Grounding LLM Inference
+This also changes who can audit the reasoning. An explicit graph can be
+inspected: every entity can be examined, every relationship queried, every
+provenance record traced back to its source. A physician using an AI system to
+inform a treatment decision needs to be able to ask "why?" and get an answer
+that makes sense. A lawyer relying on AI-assisted analysis needs to trace the
+claim to its source. An explicit representation makes this possible. A neural
+network's implicit representation does not. Auditability\index{auditability} is
+not a nice-to-have in high-stakes domains. It is a precondition for justified
+trust.
 
-The difference between asking an LLM to reason from its training data and
-asking it to reason from a typed, provenance-tracked graph is qualitative,
-not quantitative. Training data is a frozen snapshot of text compressed into
-weights. It cannot be updated without retraining. Its sources cannot be
-cited. Its confidence cannot be computed from evidence.
+The expert systems of the 1980s had the right intuition: reason over explicit
+representations whose inferences are auditable. What they got wrong was
+economics. Building those representations required armies of knowledge engineers
+working with domain experts. The statistical revolution of the 1990s and 2000s
+threw out explicit representation in favor of learned, implicit ones, and gained
+enormous practical capability at the cost of auditability. The current moment is
+the first time in the history of the field that building explicit, structured,
+domain-specific representations at scale has been practical -- because the
+extraction step, always the bottleneck, can now be done by a language model with
+a well-designed prompt.
 
-A graph provides all of these things. The system retrieves the relevant
-subgraph -- entities and edges bearing on the question -- and injects it
-into the model's context. The model reasons over that context. The answer
-is grounded in retrieved claims with known sources, not in training-data
-recall. When the graph is wrong, you fix the graph. You do not retrain the
-model. When the model's answer is surprising, you can trace the reasoning
-path through the graph edges and provenance records that informed it.
+The extraction bottleneck that stopped everything else is now broken. The case
+for explicit knowledge representation has not changed. The cost has.
 
-### Hypothesis Generation
+### Hypothesis generation
 
 A well-constructed typed graph supports a class of query impossible over
 unstructured text: "what relationships exist between X and Y that no single
 source asserts but that follow from combining multiple sources?"
 
-In the Holmes corpus: Holmes knows Irene Adler\index{Adler, Irene} outmaneuvered him. Irene
-Adler is associated with a particular case in a particular year. The case
-involves a client whose later appearances are documented in other stories.
-A traversal combining these facts can surface a connection between Holmes's
-experience with Adler and his subsequent behavior in cases involving women
-clients -- a connection no single story states but that follows from the
-graph. The graph narrows the space of possibilities for a literary analyst
-to evaluate.
+In a scientific corpus, this generates drug-disease candidate pairs, gene-pathway
+associations, and cross-trial comparisons that no single paper asserts. These
+are candidate hypotheses, not established facts. The graph does not decide which
+are worth pursuing. It surfaces candidates that a human can filter, prioritize,
+and test.
 
-In a scientific corpus, the same pattern generates drug-disease candidate
-pairs, gene-pathway associations, and cross-trial comparisons that no single
-paper asserts. These are candidate hypotheses, not established facts. The
-graph does not decide which are worth pursuing. It surfaces candidates that
-a human can filter, prioritize, and test.
+### An invitation
 
-### An Invitation
+The epistemic commons -- MeSH, HGNC, RxNorm, UniProt, Wikidata, and the dozens
+of domain-specific authorities that curated communities have built over decades
+-- was built for human use. The typed graph makes it available to machines in a
+form that carries its own warrant: canonical IDs anchoring to the authorities, a
+schema constraining what can be expressed, provenance tracing every claim to its
+source.
 
-The epistemic commons -- MeSH, HGNC, RxNorm, UniProt, Wikidata, and the
-dozens of domain-specific authorities that curated communities have built
-over decades -- was built for human use. Researchers navigated it through
-literature searches, reference lists, and expert consultation. The knowledge
-was there. The access was slow.
-
-The typed graph makes that commons available to machines in a form that
-carries its own warrant: canonical IDs anchoring to the authorities, a
-schema constraining what can be expressed, provenance tracing every claim
-to its source. A machine traversing this graph is not pattern-matching over
-text. It is reasoning over a structured representation of what expert
-communities have established, with the ability to follow chains of evidence
-and surface the sources behind every step.
-
-That is not a small thing. The extraction bottleneck that prevented this
-for fifty years is now broken. The infrastructure described in this book
-is buildable today, with tools that exist, at a cost that is no longer
-prohibitive.
+That is not a small thing. The extraction bottleneck that prevented this for
+fifty years is now broken.
 
 ---
 
-## Appendix A: Formal Definition Reference
+# Appendix: Formal Definition
 
 `\chaptermark{Formal Definition Reference}`{=latex}
 
-Quick-reference card for the seven-tuple, validity constraints, and trait
-vocabulary. Suitable for use alongside later chapters without re-reading
-Chapter 2.
+This appendix defines the formal model precisely, establishes vocabulary, states
+hard rules, and lists explicit non-goals. When in doubt, check against this
+appendix before writing code, prose, or schema definitions.
 
-**The Seven-Tuple**
+The notation itself is not the point -- the benefits come from what the process
+of formalizing forces, and those benefits survive translation into plain prose.
 
-A typed graph is $(T_V,\ T_E,\ \Phi,\ V,\ E,\ \tau_V,\ \tau_E)$ where:
+**It settles ambiguity permanently.** Natural language descriptions of data
+structures always leave wiggle room. "Edges have types" could mean a dozen
+things. A formal definition closes off all of them at once.
 
-| Symbol | Name | Description |
-|---|---|---|
-| $T_V$ | Entity type vocabulary | Finite set of vertex types |
-| $T_E$ | Predicate type vocabulary | Finite set of edge types |
-| $\Phi$ | Field schema assignment | Per-type field requirements |
-| $V$ | Entity instances | Typed vertex records |
-| $E$ | Edge instances | Directed typed edges $(u, p, v) \in V \times T_E \times V$ |
-| $\tau_V$ | Entity type function | $\tau_V : V \to T_V$ |
-| $\tau_E$ | Edge type projection | Predicate label of each edge |
+**It separates schema from instance.** The $T$ vs. $V$ split is the single most
+important conceptual distinction in the book. A formal definition makes it
+impossible to conflate the two.
 
-**Validity Constraints**
+**It gives you a checklist.** The 4-tuple is a completeness check. If you can't
+place something in one of those slots, either it doesn't belong in the model or
+the model is missing a slot.
 
-For every edge $(u, p, v) \in E$:
+**It anchors the vocabulary.** Once you've defined $\text{Tr}(p)$ formally,
+"trait" has a precise meaning for the rest of the book.
 
-1. $\tau_V(u) \in \text{dom}(p)$
-2. $\tau_V(v) \in \text{rng}(p)$
-3. Fields of $u$, $(u,p,v)$, and $v$ conform to $\Phi$
+**It makes identity unambiguous.** Two instances that represent the same real-
+world entity must be distinguishable from two instances that represent the same
+claim at different epistemic states. Canonical IDs close off that confusion.
 
-With subtypes: replace set membership with $\tau_V(u) \leq t$ for some $t \in \text{dom}(p)$.
-
-**Trait Vocabulary**
-
-$$\text{Tr}(p) \subseteq \{\text{Symmetric},\ \text{Transitive},\ \text{Functional},\ \text{InverseFunctional},\ \text{Inverse}(p'),\ \text{Rule}(\phi \Rightarrow \psi)\}$$
-
-| Trait | Rule |
-|---|---|
-| Symmetric | $(x,p,y) \Rightarrow (y,p,x)$ |
-| Transitive | $(x,p,y) \wedge (y,p,z) \Rightarrow (x,p,z)$ |
-| Functional | $(x,p,y) \wedge (x,p,z) \Rightarrow y=z$ |
-| InverseFunctional | $(x,p,z) \wedge (y,p,z) \Rightarrow x=y$ |
-| Inverse$(p')$ | $(x,p,y) \Rightarrow (y,p',x)$ |
-| Rule$(\phi \Rightarrow \psi)$ | Arbitrary Horn clause |
+**It grounds every claim in its source.** A proposition without provenance is
+not reliable knowledge -- it is an unverifiable assertion.
 
 ---
 
-## Appendix B: Non-Goals
+### Formal Definition
 
-What this model is not, and why the distinction matters.
+A typed graph $G$ is a 4-tuple $(T,\ \Phi,\ V,\ \tau)$ where:
 
-**Not RDF/OWL.** In RDF, predicates are URIs and are themselves nodes; the
+#### Schema layer -- fixed at graph-design time
+
+- $T$ -- finite set of **types**, partitioned into:
+  * $T_\text{ent}$ -- **entity types** (e.g. Person, Drug, Location)
+  * $T_\text{pred}$ -- **predicate types** (e.g. Treats, KnewAt, LocatedIn)
+- $\Phi: T \to \text{FieldSchema}$ -- the **field schema**, mapping each type
+  to a Pydantic model declaration of named, typed fields. For predicate types,
+  $\Phi$ includes three distinguished fields:
+  * `subject` -- typed reference to an instance in $V$; the type annotation
+    constitutes $\text{dom}(p)$
+  * `object_` -- typed reference to an instance in $V$; the type annotation
+    constitutes $\text{ran}(p)$
+  * `truth_status` -- the graph's current commitment to the proposition
+- For each $p \in T_\text{pred}$:
+  * $\text{dom}(p) \subseteq T$ -- permitted subject types
+  * $\text{ran}(p) \subseteq T$ -- permitted object types
+  * $\text{Tr}(p) \subseteq \text{Trait}$ -- finite set of semantic traits
+
+The partition is strict: $T_\text{ent} \cap T_\text{pred} = \emptyset$ and
+$T_\text{ent} \cup T_\text{pred} = T$. Every type is exactly one of the two;
+$\Phi$ determines which, by whether it declares the distinguished fields
+`subject`, `object_`, and `truth_status`. Note the asymmetry with the instance
+layer: every predicate *instance* is a full member of $V$ ($E \subseteq V$),
+but no predicate *type* is an entity *type*. The Python realization mirrors both
+facts at once: `EntityInstance` and `BaseStatement` are disjoint siblings under
+a common root class `Instance`, which carries membership in $V$ (the `id`
+field). $\tau$ assigns each instance its most-derived class, which falls
+unambiguously on one side of the partition.
+
+#### Instance layer -- populated at ingestion or reasoning time
+
+- $V$ -- set of all **instances** (both entity instances and predicate instances)
+- $\tau: V \to T$ -- type assignment for all instances
+
+The **edge set** $E$ is derived, not primitive:
+
+$$E = \{v \in V : \tau(v) \in T_\text{pred}\}$$
+
+$E \subseteq V$: every member of $E$ is also a member of $V$. A predicate
+instance is a full member of $V$ -- it has an id, it can be referenced by other
+predicate instances as their subject or object. This is the single relaxation
+relative to the classical graph formalism, where $V$ and $E$ are disjoint sorts.
+It is what enables higher-order predication without a separate reification
+mechanism.
+
+#### Canonical identity
+
+Each instance $v \in V$ carries a distinguished field $v.\text{id} \in
+\mathcal{I}$, where $\mathcal{I}$ is a universe of stable identifiers. The
+identity axiom requires:
+
+$$\forall\, v, v' \in V:\ v \neq v' \Rightarrow v.\text{id} \neq v'.\text{id}$$
+
+The identifier is:
+
+- **Assigned at construction** -- not derived from any mutable field
+- **Stable** -- once assigned, it does not change
+- **Non-dispatch** -- the id string is never parsed to recover type; type is
+  the exclusive responsibility of $\tau$ and the Python class hierarchy
+- **Ontology-anchored where possible** -- for entity instances that correspond
+  to real-world referents, the id should be sourced from or aligned with a
+  community-curated authoritative ontology
+
+Display is separate from identity. Instances implement `__str__` to return a
+human-readable label -- `display_name` for entities that carry one, and
+`ClassName(subject → object)` for predicate instances. This presentation string
+is one-way: it is generated for human consumption and is never parsed back.
+
+#### Validity constraint
+
+Each instance $v \in V$ carries fields conforming to $\Phi(\tau(v))$.
+
+For predicate instances, this subsumes domain/range enforcement: if $\Phi(p)$
+declares `subject: Drug` and `object_: Disease`, then an instance of type $p$
+whose subject is a Location fails field validation. No separate domain/range
+check is needed.
+
+#### Trait vocabulary
+
+$$
+\begin{aligned}
+\text{Trait} ::=\ &\text{Symmetric} \mid \text{Transitive}\\
+    \mid\ &\text{Functional} \mid \text{InverseFunctional}\\
+    \mid\ &\text{Inverse}(p') \mid \text{Rule}(\varphi \Rightarrow \psi)
+\end{aligned}
+$$
+
+Traits are realized as Python mixin classes inherited alongside the base
+predicate class.
+
+##### Rule($\varphi \Rightarrow \psi$) -- Datalog rules
+
+`Rule(phi => psi)` is a **Datalog rule** -- a Horn clause restricted to positive,
+function-symbol-free literals:
+
+- **body ($\varphi$)** -- a conjunction of positive graph pattern conditions
+- **head ($\psi$)** -- a single derived predicate instance to assert when
+  the body holds
+
+$$
+p_1(x_{a_1}, x_{b_1}) \wedge \cdots \wedge p_k(x_{a_k}, x_{b_k})\
+\Rightarrow\ p_0(x_{a_0}, x_{b_0})
+$$
+
+The Datalog restrictions -- no function symbols, no negation, no existential
+variables in the head -- keep inference decidable. Rule application is iterated
+to a **least fixed point** over the asserted graph.
+
+The named traits are special cases of Datalog rules:
+
+| Trait | Equivalent rule |
+|---|---|
+| `Transitive` | $p(x, y) \wedge p(y, z) \Rightarrow p(x, z)$ |
+| `Symmetric` | $p(x, y) \Rightarrow p(y, x)$ |
+| `Inverse(p')` | $p(x, y) \Rightarrow p'(y, x)$ |
+
+#### Truth status
+
+Every predicate instance carries a `truth_status` field:
+
+$$
+\begin{aligned}
+\text{TruthStatus} ::=\ &\text{asserted\_true}
+    \mid \text{asserted\_false}\\
+    \mid\ &\text{hypothetical} \mid \text{disputed}
+    \mid \text{retracted}
+\end{aligned}
+$$
+
+Under the closed-world assumption, the presence of a predicate instance does NOT
+by itself assert the proposition; the `truth_status` field carries the assertion
+explicitly. This replaces the classical convention where edge-presence is
+assertion.
+
+The **asserted graph** is the projection of $E$ where
+`truth_status = asserted_true`. A disputed proposition remains in $V$ (it can
+be referenced, queried, and reasoned about) but is excluded from the asserted
+graph.
+
+Lifecycle: a predicate instance is typically created as `hypothetical` at first
+mention, promoted to `asserted_true` when grounded, and may later become
+`disputed` (conflicting sources) or `retracted` (overturned by new evidence).
+
+#### Provenance
+
+Every predicate instance carries a **provenance sub-schema** -- a distinguished
+set of fields in $\Phi(p)$ that record how the assertion was produced. The
+minimum provenance fields required for any $p \in T_\text{pred}$ are:
+
+- `source` -- the origin of the claim: a text span or document reference
+- `extraction_method` -- how the claim was derived
+
+Provenance fields are instance metadata: they describe how this particular
+assertion was produced, not what the predicate type means. **Provenance does not
+replace truth_status.** A claim with high-confidence provenance from a reliable
+source may still be `disputed` or `retracted`. Truth status is the graph's
+current epistemic commitment; provenance is the audit trail behind it.
+
+---
+
+### Vocabulary
+
+Use these terms consistently. Do not treat them as synonyms.
+
+| Term | Definition |
+|------|-----------|
+| **Instance** | A member of $V$ -- the common root of both sorts. Every entity instance and every statement is an Instance. |
+| **Entity type** | A member of $T_\text{ent}$. Realized as a Python class inheriting from `EntityInstance`. Example: `Person`, `Location`. |
+| **Predicate type** | A member of $T_\text{pred}$. Realized as a Python class inheriting from `BaseStatement`. Example: `LocatedIn`, `KnewAt`. |
+| **Entity instance** | A member of $V$ with $\tau(v) \in T_\text{ent}$. A concrete node. |
+| **Statement** | A member of $V$ with $\tau(v) \in T_\text{pred}$. A concrete proposition. Also a member of $E$. |
+| **Field schema** | $\Phi(t)$: the Pydantic model declaration of named fields for type $t$. |
+| **Domain** | $\text{dom}(p)$ -- the set of types permitted in the subject role for $p$. |
+| **Range** | $\text{ran}(p)$ -- the set of types permitted in the object role for $p$. |
+| **Trait** | A declarative semantic property of a predicate type. Member of $\text{Tr}(p)$. |
+| **Asserted graph** | The subset of $E$ where `truth_status = asserted_true`. |
+| **Canonical identifier** | The value of $v.\text{id}$ for instance $v \in V$. Globally unique within $V$, assigned at construction, immutable, never parsed for type dispatch. |
+| **Provenance** | The set of fields $\Pi(p) \subseteq \Phi(p)$ that record how a predicate instance was produced. |
+
+#### Terms to avoid or use carefully
+
+- **Edge** -- informal synonym for Statement when discussing traversal. Use "Statement" in definitions.
+- **Relationship** -- use to mean a predicate instance, never a predicate type.
+- **Node** -- informal synonym for entity instance. Acceptable in casual prose.
+- **Property** -- overloaded. Be explicit about whether you mean a field on an instance or a trait on a predicate type.
+- **Entity** -- do not use as a synonym for "member of $V$." A Statement is a member of $V$ but is not an entity instance.
+- **Reification** -- in this model, there is nothing to reify. The word applies to models where edges and vertices are disjoint sorts; here they are not.
+
+---
+
+### Hard Rules
+
+**R1. Traits belong to predicate types, never to instances.** A predicate either
+has `Transitive` or it does not. In Python, traits are declared by inheriting
+the trait mixin class alongside `BaseStatement`.
+
+**R2. Metadata fields belong to instances, never to predicate types.** Provenance,
+confidence, timestamps -- these are facts about a particular assertion and live
+on the instance.
+
+**R3. Every predicate instance is a directed, typed, truth-bearing proposition.**
+It carries `subject`, `object_`, `truth_status`, and whatever additional fields
+$\Phi$ requires.
+
+**R4. Domain and range are sets of types, not instances.** You constrain which
+*kinds* of things may appear as subject or object, not which specific things.
+
+**R5. Schema is fixed; instances are populated.** Nothing discovered during
+ingestion changes $T$, $\Phi$, domain, range, or traits.
+
+**R6. Domain and range constraints are enforced by the Python type system.**
+Types are Python classes. Each predicate class declares its `subject` and
+`object_` fields with concrete class annotations. Mypy enforces these statically;
+Pydantic enforces them at construction time.
+
+**R7. Pydantic models for instances are frozen.** Use
+`model_config = ConfigDict(frozen=True)`. Instances are facts; they must not be
+mutated after construction.
+
+**R8. Higher-order predication is a schema-level type declaration, not a runtime
+promotion.** A predicate enables higher-order claims when its range includes a
+predicate type (a `BaseStatement` subclass). This is declared once in $\Phi$ at
+schema design time. There is no runtime "promotion" of instances between layers.
+
+Do **not** use higher-order predication to attach provenance or epistemic
+metadata to a proposition. That is R2's job. Higher-order predication is for
+*predicating over* a proposition, not for *annotating* one.
+
+**R9. Every instance has a canonical, stable identifier; display is separate.**
+The `id` field is assigned at construction and does not change. The id string
+must never be parsed to recover type -- type is the exclusive responsibility of
+$\tau$ and the Python class hierarchy.
+
+Human-readable display is the responsibility of `__str__`, not `id`. `__str__`
+returns `display_name` for entities that carry one, and
+`ClassName(subject → object)` for predicate instances. It is a one-way
+presentation artifact -- generated for human consumption, never parsed back.
+
+**R10. Every predicate type declares a provenance sub-schema.** $\Phi(p)$ must
+include at minimum `source` and `extraction_method` for all
+$p \in T_\text{pred}$. These fields are required, not optional.
+
+---
+
+### Python Enforcement Pattern
+
+The class hierarchy mirrors the formalism exactly. A single root class,
+`Instance`, carries the `id` field and the frozen model configuration --
+it realizes membership in $V$. Entity types are `EntityInstance` subclasses;
+predicate types are `BaseStatement` subclasses with trait mixins inherited
+alongside. `EntityInstance` and `BaseStatement` are disjoint siblings under
+`Instance`: the sibling split realizes the strict partition of $T$, and
+`BaseStatement` $\subset$ `Instance` realizes $E \subseteq V$.
+
+Domain and range constraints are expressed as Pydantic field type annotations --
+no custom validation logic is needed. Traits are introspectable at runtime
+(`issubclass(LocatedIn, Transitive)`), and `get_inverse` resolves declared
+inverse pairs.
+
+---
+
+### Non-Goals
+
+**Not RDF / OWL.** In RDF, predicates are URIs and are themselves nodes; the
 graph is a flat set of triples with no first-class edge objects. OWL adds
-description logic and the open-world assumption. This model is a closed-world
-property graph with typed, field-bearing edge instances. The distinction
-matters especially for reification: RDF requires it, this model eliminates it.
-An edge that carries provenance and confidence is a first-class object, not
-a triple about a triple.
+description logic semantics and open-world assumption. This model is a closed-
+world typed graph where every predicate instance is a truth-bearing, field-
+carrying member of $V$. RDF requires reification or named graphs for higher-
+order predication; this model handles it through type declarations on domain
+and range.
 
 **Not Neo4j's informal property graph.** Neo4j allows arbitrary key-value
-properties on edges without schema enforcement. This model requires a
-declared field schema and enforced subject/object type constraints. The
-schema is a contract, not documentation.
+properties on edges without schema enforcement. This model requires a declared
+field schema ($\Phi$) and enforced domain/range constraints.
 
-**Not an entity-relationship diagram.** ER diagrams are a database design
-tool. This is a runtime knowledge representation with provenance, epistemic
-scope, and trait-based inference semantics.
+**Not an entity-relationship diagram.** ER diagrams are a database design tool.
+This is a runtime knowledge representation with provenance, epistemic scope, and
+trait-based inference semantics.
 
 **Not a general ontology language.** This model does not support open-world
 reasoning, class hierarchies, disjointness axioms, or the full OWL trait
-vocabulary. If a use case seems to require full description logic, that is
-scope creep. The power gained from the closed-world assumption is worth
-more in high-stakes domains than the expressiveness surrendered.
+vocabulary. Traits are a small, fixed set of declarative properties. If a use
+case seems to require full description logic, that is scope creep.
+
+**Not a stringly-typed system.** Types are Python classes, not ID prefixes.
+Domain and range enforcement is the job of the Python type system and Pydantic,
+not of string parsing. Any code that parses an identifier string to determine or
+dispatch on a type is a violation of R6.
 
 ---
 
-## Appendix C: The Holmes Schema Reference
+### Current Domain: Holmes Corpus
 
-`\chaptermark{Holmes Schema Reference}`{=latex}
+The worked example uses the Sherlock Holmes canon as domain.
 
-*[Placeholder: The Holmes schema is being built inductively by annotating
-the Conan Doyle canonical corpus rather than pre-designed. The full schema
-will be published here -- in both YAML (schema definition language) and
-Python (kgschema binding) -- when sufficient annotation work has been
-completed to stabilize the entity types and predicate vocabulary.*
-
-*The working draft of the schema appears in Chapter 3 (YAML) and Chapter 4
-(Python). The authoritative version in progress is maintained at
-`graphwright.io/schemas/holmes` in the companion repository.*
-
-*Entity types expected in the final schema: Person, Location, Object, Event,
-Moment (provisional). Predicate vocabulary in progress includes:
-associated\_with, disguised\_as, knows, located\_in, occurred\_at,
-known\_to\_watson\_at, involves, has\_true\_identity, and others being
-identified through story annotation. Rationale for provisional types and
-annotation methodology will be documented here.]*
+- **Ontology authority**: Baker Street Wiki
+- **Schema construction method**: inductive -- built by annotating stories
+- **Primary stories**: *A Scandal in Bohemia* (complete); *The Speckled Band*
+  (planned)
+- **Entity types**: `Person`, `Location`, `Object`, `Document`, `Moment`,
+  `Event`, `Persona`, `Plan`
+- **Higher-order predicates**: `KnewAt`, `Contradicts` -- these take
+  `BaseStatement` in their range, enabling epistemic and dispute tracking
