@@ -35,8 +35,6 @@ possible.
 This is the minimum standard. Not a guarantee of truth -- a guarantee that
 truth is pursuable.
 
----
-
 ## Preface
 
 My brother told an LLM:
@@ -87,8 +85,6 @@ Readers who work in other languages can engage fully with the conceptual
 chapters and understand exactly what they would need to build. The code
 examples use Python and the `ner_20260608` package, but the ideas are
 language-independent.
-
----
 
 ## Introduction: Why Machines Need to Show Their Work
 
@@ -256,8 +252,6 @@ make entity resolution robust at scale. Chapter 6 is the payoff: the graph as a
 reasoning surface, with worked query examples. Chapter 7 sketches the production
 architecture for continuous ingestion. The Appendix provides the formal
 definition for those who want to ground the concepts precisely.
-
----
 
 ## Chapter 1: The Base Vectors in Depth
 
@@ -559,8 +553,6 @@ deliberate choice.
 
 Chapter 6 develops traversal in depth, with worked examples from the Holmes
 corpus.
-
----
 
 ## Chapter 2: The Holmes Corpus
 
@@ -1247,8 +1239,6 @@ edge structural overhead, no multi-hop traversal tax for the common case. The
 fixpoint problem in the loader is the only complexity this introduces, and it
 is tractable.
 
----
-
 ## Chapter 3: Medical Literature
 
 `\chaptermark{Medical Literature}`{=latex}
@@ -1334,8 +1324,6 @@ is only invoked for cache misses that also miss the ontology.
 
 > **[Placeholder -- reference to earlier work on a specific paper]**
 
----
-
 ## Chapter 4: Domain Services -- What the Wall Contains
 
 `\chaptermark{Domain Services}`{=latex}
@@ -1411,8 +1399,6 @@ extraction error.
 **Predicate renaming** follows the deprecate-old, introduce-new pattern, with a
 migration script that records the transformation in the provenance record. The
 transformation is auditable after the fact.
-
----
 
 ## Chapter 5: The Identity Server
 
@@ -1546,8 +1532,6 @@ automatically because merges are irreversible.
 `GET /entity/{id}` returns the full record for an entity: current status, all
 known surface forms, the full provenance audit trail, and -- if canonical -- the
 authority name and ID.
-
----
 
 ## Chapter 6: Querying -- The Payoff
 
@@ -1995,8 +1979,6 @@ Two mechanisms must both see the new class:
 
 The only manual step is adding `Employs` to the `model_rebuild()` list.
 
----
-
 ## Chapter 7: Production Scale
 
 `\chaptermark{Production Scale}`{=latex}
@@ -2032,8 +2014,6 @@ Provenance as the audit surface: every claim is traceable to its source
 document and extraction pass. Disputed claim dashboards: when two papers produce
 conflicting claims about the same entity pair and predicate, the graph surfaces
 the conflict rather than silently overwriting.
-
----
 
 # Closing
 
@@ -2179,8 +2159,6 @@ source.
 That is not a small thing. The extraction bottleneck that prevented this for
 fifty years is now broken.
 
----
-
 # Appendix: Formal Definition
 
 `\chaptermark{Formal Definition Reference}`{=latex}
@@ -2213,8 +2191,6 @@ claim at different epistemic states. Canonical IDs close off that confusion.
 
 **It grounds every claim in its source.** A proposition without provenance is
 not reliable knowledge -- it is an unverifiable assertion.
-
----
 
 ### Formal Definition
 
@@ -2378,8 +2354,6 @@ replace truth_status.** A claim with high-confidence provenance from a reliable
 source may still be `disputed` or `retracted`. Truth status is the graph's
 current epistemic commitment; provenance is the audit trail behind it.
 
----
-
 ### Vocabulary
 
 Use these terms consistently. Do not treat them as synonyms.
@@ -2407,8 +2381,6 @@ Use these terms consistently. Do not treat them as synonyms.
 - **Property** -- overloaded. Be explicit about whether you mean a field on an instance or a trait on a predicate type.
 - **Entity** -- do not use as a synonym for "member of $V$." A Statement is a member of $V$ but is not an entity instance.
 - **Reification** -- in this model, there is nothing to reify. The word applies to models where edges and vertices are disjoint sorts; here they are not.
-
----
 
 ### Hard Rules
 
@@ -2462,8 +2434,6 @@ presentation artifact -- generated for human consumption, never parsed back.
 include at minimum `source` and `extraction_method` for all
 $p \in T_\text{pred}$. These fields are required, not optional.
 
----
-
 ### Python Enforcement Pattern
 
 The class hierarchy mirrors the formalism exactly. A single root class,
@@ -2478,8 +2448,6 @@ Domain and range constraints are expressed as Pydantic field type annotations --
 no custom validation logic is needed. Traits are introspectable at runtime
 (`issubclass(LocatedIn, Transitive)`), and `get_inverse` resolves declared
 inverse pairs.
-
----
 
 ### Non-Goals
 
@@ -2508,8 +2476,6 @@ case seems to require full description logic, that is scope creep.
 Domain and range enforcement is the job of the Python type system and Pydantic,
 not of string parsing. Any code that parses an identifier string to determine or
 dispatch on a type is a violation of R6.
-
----
 
 ### Current Domain: Holmes Corpus
 
