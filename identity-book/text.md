@@ -1,5 +1,5 @@
 ---
-title: "The Typed Graph: Naming, Knowing, and Trusting Machine Knowledge"
+title: "Principles of Reliable Machine Reasoning"
 author: "Will Ware"
 date: "2026"
 publisher: "Graphwright Publications"
@@ -11,26 +11,29 @@ lang: en
 
 `\markboth{Foreword}{Foreword}`{=latex}
 
-High-stakes reasoning requires things, not strings.
+Reasoning in high-stakes domains -- medicine, law, social infrastructure --
+cannot run on the frailties LLMs are prone to: hallucination, misattribution,
+confident error. Here, reasoning requires things, not strings.
 
 Similarity is not identity. Retrieval is not reasoning.
 
 The LLM is the extraction and language layer. The graph is the reasoning
 substrate. Conflating those two roles is where most systems go wrong.
 
-RDF got the atoms right. It left the chemistry uncontrolled.
+RDF got the atoms right. It left the chemistry uncontrolled. Three base vectors
+supply that chemistry:
 
-A typed graph fixes the chemistry: a finite, closed vocabulary of entity
-types and predicates, each predicate with declared subject and object types.
-What falls outside the vocabulary is inexpressible, not merely discouraged.
-Category errors become detectable. Subtypes inherit constraints.
+* A typed graph fixes the chemistry: a finite, closed vocabulary of entity types
+  and predicates, each predicate with declared subject and object types. What
+  falls outside the vocabulary is inexpressible, not merely discouraged.
+  Category errors stop being possible to write down.
 
-Canonical IDs connect the graph to the edifice of human knowledge. Two
-sources that agree on an ID agree on a referent. Multi-hop causal reasoning
-becomes possible when identity is unambiguous.
+* Canonical IDs connect the graph to the edifice of human knowledge. Two
+  sources that agree on an ID agree on a referent. Multi-hop causal reasoning
+  becomes possible when identity is unambiguous.
 
-Provenance makes uncertainty composable. Inspectability makes correction
-possible.
+* Provenance makes uncertainty composable: confidence can be tracked, combined,
+  and audited, not just asserted. Inspectability makes correction possible.
 
 This is the minimum standard. Not a guarantee of truth -- a guarantee that
 truth is pursuable.
@@ -56,8 +59,11 @@ wrong matters. The fix is not to distrust them entirely. It is to give them
 something reliable to reason from -- a structured, inspectable, domain-specific
 representation of what is actually known. That is a knowledge graph.
 
-This book makes a single argument: that a graph of knowledge becomes
-trustworthy in proportion to how precisely it is typed.
+This book argues that machine reasoning becomes trustworthy in proportion to
+how precisely its knowledge is typed, sourced, and anchored to shared identity.
+Strong typing, provenance, and ontology alignment are not three separate features
+to weigh against each other — they are three conditions that must hold together
+before a graph can be trusted.
 
 Type systems in programming languages were originally invented as tools for
 mathematical proof. They migrated into compilers not because mathematicians
@@ -89,6 +95,74 @@ language-independent.
 ## Introduction: Why Machines Need to Show Their Work
 
 `\chaptermark{Why Machines Need to Show Their Work}`{=latex}
+
+**What a Graph Actually Is**
+
+Before any of the failure modes, base vectors, or formal definitions, it helps
+to be precise about the basic object this book keeps returning to: a graph.
+
+A graph is nothing more than a set of things and a set of connections between
+them. Draw three dots on a page — Holmes, Watson, Baker Street — and connect
+Holmes to Watson with a line, and Holmes to Baker Street with another. That is a
+complete, if trivial, graph. The dots are usually called *nodes* or *vertices*;
+the connecting lines are *edges*.
+
+The first refinement is direction. "Holmes knows Watson" is naturally two-way —
+if Holmes knows Watson, Watson knows Holmes too. But "Holmes lives at Baker
+Street" only runs one way; Baker Street does not live at Holmes. Once edges have
+direction, you can distinguish these cases, and a graph becomes a more faithful
+model of how relationships actually behave.
+
+The second refinement is labels. An unlabeled edge just says "these two things
+are connected," which is barely more useful than a list of pairs. Label the edge
+from Holmes to Watson `Knows`, and the edge from Holmes to Baker Street
+`LivesAt`, and the graph starts to say something. Add labels to the nodes too —
+`Person`, `Location` — and you can ask questions like "show me every `Person`
+connected to a `Location` by `LivesAt`," which is the seed of everything this
+book calls querying.
+
+The third refinement is metadata. A real-world claim usually carries more than
+just "this is connected to that." It carries *when* it was true, *how confident*
+you are, *where it came from*. Attach these as extra fields on the edge — not as
+separate nodes, just as data riding along with the connection — and the graph
+starts to carry the kind of context a reasoning system actually needs.
+
+That, in barest form, is what people mean by **Graph RAG**: instead of
+retrieving raw passages of text and hoping a language model can piece together
+the relationships buried inside them (plain RAG), you retrieve directly from a
+graph where the relationships are already explicit, labeled, and traversable.
+The retrieval step hands the model *structure*, not just *prose*.
+
+You could implement the graph above in a few lines of Python, with no special
+libraries at all:
+
+```python
+# nodes are just labeled strings
+nodes = { "Holmes": "Person",
+          "Watson": "Person",
+          "Baker_St": "Location" }
+
+# edges: a dict mapping each node to a list of (label, target) pairs
+edges = {
+    "Holmes": [ ("Knows", "Watson"),
+                ("LivesAt", "Baker_St") ],
+    "Watson": [ ("Knows", "Holmes") ]
+}
+
+# Q1: who does Holmes know?
+print([tgt for lbl, tgt in edges["Holmes"] if lbl == "Knows"])
+# → ['Watson']
+
+# Q2: is there any path from Watson to Baker_St?
+print(any(tgt == "Baker_St" for lbl, tgt in edges.get("Watson", [])))
+# → False (not directly -- you'd need to go through Holmes)
+```
+
+That is the whole idea: nodes, directed labeled edges, and a couple of
+dictionary lookups to ask questions of the structure. Everything else in this
+book — types, predicates, provenance, canonical IDs, BFS, transitive closure —
+is this same idea, made precise enough that a machine can use it without getting
+confused.
 
 ### The structural failure mode
 
@@ -335,14 +409,16 @@ that was supposed to be temporary never ended. The marginal cost of a new
 extraction task dropped from months of annotation work to a prompt. That shift
 changes everything. The rest of the analysis still applies.
 
-#### A brief history of type systems
+
+
+
+
 
 The notion of a type system originates not in programming but in mathematical
 logic, as a response to a crisis. In 1901, Bertrand Russell\index{Russell, Bertrand}
 discovered that naive set theory contains a contradiction now known as Russell's
 paradox\index{Russell's paradox}. The set of all sets that do not contain
 themselves: does it contain itself? Either answer leads to a contradiction.
-Frege's edifice collapsed.
 
 Russell's own remedy was the theory of types\index{type theory}. The key move
 was to stratify mathematical objects into levels and to forbid any statement
@@ -353,7 +429,7 @@ became not just false but syntactically unformable.
 Types migrated into programming languages through a series of increasingly
 practical forms. ML introduced *inferred* types: the programmer need not
 annotate every variable, because the compiler can deduce the types from how
-values are used. Haskell and OCaml extended this to algebraic data types and
+values are used. Haskell\index{Haskell} and OCaml\index{OCaml} extended this to algebraic data types and
 parametric polymorphism. The slogan that emerged from this tradition was "make
 illegal states unrepresentable"\index{illegal states unrepresentable}: design your
 types so that a program that compiles cannot reach an invalid state.
@@ -2147,7 +2223,25 @@ are candidate hypotheses, not established facts. The graph does not decide which
 are worth pursuing. It surfaces candidates that a human can filter, prioritize,
 and test.
 
-### An invitation
+There is a sharper version of this problem worth naming. Detecting Holmes's plan
+from a sequence of events is tractable precisely because Doyle has Holmes state
+his goal out loud before he acts on it — the pipeline only has to recognize a
+stated intention and gather the events that follow it, not infer a hidden
+purpose from silence. Most interesting scientific hypotheses are the opposite
+case. No single paper states "the unifying mechanism behind these twelve
+independently observed effects is X" — that synthesis is exactly what's missing,
+and exactly what a human researcher's insight supplies. A graph that has
+correctly typed, sourced, and time-stamped a thousand papers' worth of claims
+has done the tractable part. It has not done the part that corresponds to
+Holmes's own deductive leap. Closing that gap — building a reasoning layer that
+proposes the unstated unifying claim, rather than one that merely traverses and
+aggregates stated ones — is the harder problem underneath automated scientific
+discovery, in the lineage of King's robot scientists and their successors. This
+book's three base vectors are the precondition for that work, not a substitute
+for it: a system cannot responsibly propose what it cannot first trace, type,
+and audit.
+
+### To Jupiter, and beyond the infinite
 
 The epistemic commons -- MeSH, HGNC, RxNorm, UniProt, Wikidata, and the dozens
 of domain-specific authorities that curated communities have built over decades
