@@ -1319,86 +1319,370 @@ is tractable.
 
 `\chaptermark{Medical Literature}`{=latex}
 
-> **This chapter is a placeholder. The medical schema and pipeline are not yet
-> implemented. The design is sketched here as a contrast to the Holmes corpus.**
+The Holmes corpus was a closed literary universe with a fan-maintained wiki as
+its ontology authority. Medical literature is structurally different in every
+way that matters for typed graph construction. The ontologies are mature.
+The corpus is multi-document. The entity resolution is largely deterministic
+rather than judgment-driven. And the epistemic complexity comes not from
+narrative deception but from genuine scientific uncertainty across independent
+studies.
+
+The reference implementation described in this chapter is the `medlit`\index{medlit}
+subsystem of the `kgraph` package, which ingests PubMed Central\index{PubMed Central}
+articles in JATS/XML\index{JATS XML} format, extracts entities and relationships
+using a large language model, resolves them to canonical IDs from biomedical
+authorities, and produces a bundle for downstream query.
 
 ### 3.1 Why medical literature?
 
-Medicine is the right second domain for several reasons that Holmes alone cannot
-demonstrate. Where the Holmes corpus is a closed literary universe with a
-fan-maintained wiki as its authority, medical literature has established
-authoritative ontologies built by large professional communities over decades.
-Where Holmes's epistemic complexity comes from narrative structure and deliberate
-misdirection, medicine's complexity comes from genuine scientific uncertainty,
-hierarchical disease classification, and evidence grading that must be first-
-class in the schema.
+**Established, community-curated ontologies.** UMLS\index{UMLS} (Unified Medical
+Language System) provides cross-ontology harmonization across diseases, drugs,
+procedures, and anatomical structures. HGNC\index{HGNC} covers genes. RxNorm\index{RxNorm}
+covers drugs. UniProt\index{UniProt} covers proteins. MeSH\index{MeSH} covers diseases and
+biological processes and has served biomedical literature indexing since 1963.
+These authorities do most of the entity resolution work automatically. Baker
+Street Wiki required Claude to make a binary judgment -- "is this the right
+article for this entity?" -- for every entity in every story. UMLS lookup is
+a deterministic API call that returns a canonical ID or does not.
 
-**Established, community-curated ontologies.** MeSH\index{MeSH} covers diseases,
-drugs, and biological processes and has served biomedical literature indexing
-since 1963. UMLS\index{UMLS} provides cross-ontology harmonization. UniProt\index{UniProt}
-covers proteins. OMIM covers genetic conditions. These do most of the entity
-resolution work that Baker Street Wiki cannot.
-
-**Structured abstracts.** Background, Methods, Results, Conclusions sections
-provide coarse provenance for free. A claim in Results has different epistemic
-weight than one in Discussion.
+**Structured abstracts.** Background, Methods, Results, and Discussion sections
+provide coarse provenance for free. A relationship extracted from a Results
+section has different epistemic weight than one extracted from a Discussion
+section's speculation about future directions. Section boundaries are recorded
+in every evidence reference: `PMC12345:results:3:llm`.
 
 **High entity reuse across papers.** "IL-6", "interleukin-6", and "interleukin
-6" in 300 papers all resolve to the same MeSH ID without any LLM involvement.
-By paper 200, most common entities are cached; the marginal LLM cost per paper
-approaches zero.
+6" in three hundred papers all resolve to the same UMLS CUI. By the time the
+pipeline processes its fiftieth paper, the synonym cache\index{synonym cache} contains
+most common entities; the marginal cost of entity resolution per paper
+approaches zero for the core vocabulary.
 
-**Different epistemic needs.** Belief states and deception (the Holmes
-machinery) are largely irrelevant. Provenance and confidence carry more weight.
-`disputed` maps to conflicting study results rather than character deception.
+**Different epistemic needs.** Belief states, deception, and temporal
+perspective -- the epistemic machinery the Holmes schema needed -- are largely
+absent. Scientific uncertainty is the primary epistemic challenge: a
+relationship that has been replicated across fifty independent randomized
+controlled trials has different epistemic weight than one appearing in a single
+case report. The schema handles this through a `linguistic_trust` field
+(`asserted` / `suggested` / `speculative`) on each relationship, and through
+the evidence provenance chain that records which papers support each claim.
 
 ### 3.2 The medical schema
 
-> **[Placeholder -- schema not yet implemented]**
+The schema is defined in `medlit/domain_spec.py` -- the single source of truth
+for entity types, predicates, and extraction prompt instructions. Everything
+that consumes the schema -- the extraction prompt, the validation logic, the
+deduplication pass, the query server -- imports from this one module. No
+definition lives in two places.
 
-Sketch of entity types: `Drug`, `Disease`, `Gene`, `Protein`,
-`ClinicalTrial`, `PatientCohort`, `Measurement`. Predicate types: `Treats`,
-`AssociatedWith`, `InhibitsPathway`, `IndicatesRiskOf`, `Administered`,
-`Measured`. Higher-order predicates: `SupportedBy` (one claim supported by a
-finding) and `Contradicts` (reused from the Holmes schema).
+#### Entity types
 
-Domain/range for medical is tighter and more checkable than Holmes:
-`Treats(Drug, Disease)` is wrong if the subject is a `Gene`. The type system
-catches this at construction time.
+The medical schema has thirteen primary entity types:
+
+| Type | Authority | Description |
+|------|-----------|-------------|
+| `Disease` | UMLS | Diseases, syndromes, conditions |
+| `Gene` | HGNC | Genes by symbol (e.g. BRCA1) |
+| `Drug` | RxNorm | Therapeutic agents, compounds |
+| `Protein` | UniProt | Structural/signaling proteins |
+| `Hormone` | RxNorm | Peptide or steroid hormones |
+| `Enzyme` | UniProt | Catalytic proteins |
+| `Biomarker` | UMLS | Measurable indicators |
+| `Symptom` | UMLS | Clinical signs, pathological processes |
+| `Procedure` | UMLS | Tests, diagnostics, interventions |
+| `Mutation` | -- | Genetic variants |
+| `Pathway` | -- | Biological pathways |
+| `BiologicalProcess` | -- | Cellular processes |
+| `AnatomicalStructure` | UMLS | Cell types, anatomical regions |
+
+There are also three bibliographic entity types (`Author`, `Institution`,
+`Paper`) marked `metadata_only=True` -- they are graph nodes for traversal but
+are not the primary content of the clinical knowledge.
+
+The authority mapping is explicit in the promotion policy\index{promotion policy}:
+hormones are looked up under RxNorm (the drug ontology), because that is where
+hormones live. Enzymes are looked up under UniProt (the protein authority).
+Biomarkers fall back to UMLS. The type-system and the authority are not the
+same concern -- a hormone is still a hormone in the schema even when its
+canonical ID comes from a drug ontology.
+
+#### Predicates
+
+Sixteen predicates cover the medical domain:
+
+```text
+TREATS         Drug → Disease
+INCREASES_RISK Gene/Mutation → Disease
+INDICATES      Biomarker → Disease
+CAUSES         Gene/Hormone → Disease/Symptom
+INHIBITS       Drug/Protein → Protein/Pathway
+REGULATES      Drug/Gene → Gene/Pathway
+PREVENTS       Drug → Disease
+INTERACTS_WITH Drug <-> Drug (symmetric)
+ENCODES        Gene → Protein
+SUBTYPE_OF     Disease → Disease
+LOCATED_IN     Symptom/Disease → AnatomicalStructure
+ASSOCIATED_WITH any <-> any (symmetric, fallback)
+AUTHORED       Author → Paper
+AFFILIATED_WITH Author → Institution
+DESCRIBED      Paper → any (top-2 central entities)
+CITES          Paper → Paper
+```
+
+`ASSOCIATED_WITH` carries a `specificity=1` flag in the schema. The extraction
+prompt instructs the model to prefer specific predicates and use
+`ASSOCIATED_WITH` only when no more specific type applies. This is enforced
+architecturally, not just by instruction: the deduplication pass weights
+specific predicates more heavily than generic ones when merging claims.
+
+`SAME_AS`\index{SAME\_AS predicate} is a special predicate with `is_merge_signal=True`.
+It is not stored in the final graph -- it is a signal to the deduplication pass
+that two entities should be merged. The extraction model emits `SAME_AS` when
+it sees that two names in the text clearly refer to the same entity. The merge
+is executed in the `ingest` stage, not the `extract` stage.
+
+One difference from the Holmes schema is worth noting: the medical schema uses
+a single `MedicalClaimRelationship` class for all predicates, with a `predicate`
+field holding the predicate name as a string. Holmes used a separate Python
+class for each predicate (`Knows`, `LocatedIn`, `DisguisedAs`). The Holmes
+approach gives better type-system enforcement at construction time. The medical
+approach is more scalable when the predicate vocabulary is large and evolving --
+adding `LOCATED_IN` to the medical schema requires one entry in `domain_spec.py`,
+not a new class definition and a `model_rebuild()` call.
+
+#### The domain_spec.py pattern
+
+The single-source-of-truth pattern is the most important schema design decision
+in the medical implementation. Consider what a schema change involves:
+
+- **Adding a new entity type** (e.g. `ClinicalTrial`): one class definition in
+  `domain_spec.py`. The extraction prompt, validation, and dedup all see it
+  immediately, because they all import from `domain_spec.py`.
+- **Tightening a predicate's domain** (e.g. restricting `INHIBITS` to
+  `DrugEntity` only): one line in the `PredicateSpec`. The next extraction run
+  respects it automatically.
+- **Adding extraction guidance** (e.g. "extract pathological processes as
+  Symptom entities"): one sentence in `PROMPT_INSTRUCTIONS`. Every subsequent
+  extraction call uses the updated guidance.
+
+The alternative -- schema decisions spread across YAML configs, Python classes,
+extraction prompts, and validation scripts -- produces drift. An entity type
+added to the schema but forgotten in the prompt produces silent extraction gaps.
+A constraint tightened in one place but not propagated to the deduplication pass
+produces inconsistent output.
 
 ### 3.3 The ingestion pipeline for medical literature
 
-> **[Placeholder -- design is sketched, not implemented]**
+The Holmes pipeline was five stages for a single story: sentencize → coref →
+merge → events → triplets. The medical pipeline has a different shape,
+reflecting the multi-document nature of the domain.
 
-**Sentencize** -- same approach, minimal change. Medical prose is more regular
-than literary prose.
+#### Stage 0: vocabulary extraction (optional)
 
-**Coref** -- same local approach. Medical coref is simpler (less circumlocution)
-but entity mention density is higher.
+Before any per-paper processing, an optional fast pass over the full corpus
+extracts entity names and builds a shared synonym cache. This is `fetch_vocab.py`.
+It does not extract relationships; it only populates the vocabulary so that
+subsequent per-paper extractions share a common entity namespace.
 
-**Merge / entity resolution** -- the key difference from Holmes: MeSH/UMLS
-lookup replaces Baker Street Wiki, and most common entities resolve without LLM
-judgment. The Claude judgment pass only fires on ontology misses -- a small
-fraction of calls for a mature medical corpus.
+The vocabulary pass matters because the same entity may be mentioned in a
+hundred papers by different names. "ACTH", "adrenocorticotropic hormone",
+"adrenocorticotrophin", and "corticotropin" all refer to the same hormone. If
+each paper mints its own provisional entity, the deduplication stage must
+resolve a hundred separate entities down to one. If the vocabulary pass
+establishes "ACTH" as the canonical name upfront, all hundred papers
+extract mentions of the same entity from the start.
 
-**Events** -- largely absent as a concept in medical literature. Replace with
-*findings*: a Measurement or Result tied to a study and a cohort.
+#### Stage 1: entity extraction per paper
 
-**Triplets** -- same local slot-filling approach. The finite predicate
-vocabulary does more work here because medical relationship types are more
-standardized.
+For each paper, `extract.py` runs a two-step process.
 
-### 3.4 Per-mention resolution vs. batch clustering
+**Parsing.** The JATS/XML document is parsed into a `JournalArticle` object
+with `authors`, `abstract`, `publication_date`, `doi`, `pmid`, and a list of
+sections. The section boundaries -- abstract, introduction, methods, results,
+discussion -- become part of every evidence record.
 
-The Holmes pipeline batches all labels per story and sends one clustering call
-to Claude. For medical literature at scale (hundreds of papers), the better
-approach is per-mention resolution: each label hits the IdentityServer
-immediately, MeSH/UMLS lookup returns a canonical ID on contact, and the LLM
-is only invoked for cache misses that also miss the ontology.
+**NER extraction.** The paper is chunked by section (not by sentence window).
+Each section is sent to the language model with the full entity type vocabulary
+and predicate list from `domain_spec.py` injected into the prompt. The model
+returns a JSON object with an `entities` array and a `relationships` array. The
+`PROMPT_INSTRUCTIONS` string from `domain_spec.py` shapes what the model
+produces:
 
-### 3.5 The Cushing's syndrome case study
+```text
+This domain covers peer-reviewed medical literature.
+Prefer established terminology over colloquial.
+When in doubt about entity type, prefer the more
+specific type.
+For each relationship, classify linguistic trust:
+asserted / suggested / speculative.
+Evidence id format: {paper_id}:{section}:{para}:llm
+```
 
-> **[Placeholder -- reference to earlier work on a specific paper]**
+A `linguistic_trust` field on each extracted relationship records how the text
+expressed the claim -- direct assertion, soft suggestion, or speculative
+hedging. This is not confidence in the extraction; it is the epistemic character
+of the source text itself.
+
+**Authority lookup.** After the model's entity array is parsed, each extracted
+entity goes through the authority lookup chain\index{authority lookup chain}:
+
+1. **Exact cache hit.** The synonym cache is checked first. If "cortisol" has
+   been resolved before, its UMLS CUI is returned immediately.
+2. **UMLS lookup** (for diseases, symptoms, anatomical structures). The UMLS API
+   is queried with the entity name and the expected semantic type. The semantic
+   type is verified: if the UMLS record says "Pharmacologic Substance" but the
+   extraction typed it as `Gene`, the lookup returns null with a type mismatch
+   warning. This catches a class of LLM error -- calling cortisol a "gene" --
+   that would otherwise propagate silently.
+3. **HGNC lookup** (for genes). The HGNC REST API resolves gene symbols.
+4. **RxNorm lookup** (for drugs and hormones). Hormones map to the drug
+   ontology via the `_AUTHORITY_TYPE_OVERRIDES` table in the promotion policy.
+5. **UniProt lookup** (for proteins and enzymes). Enzymes likewise map to the
+   protein ontology.
+6. **Provisional.** If all five lookups fail, a provisional ID is minted:
+   `prov-<uuid>`. The entity is a full graph citizen; it simply has no external
+   anchor yet.
+
+A blocklist prevents nonsense lookups: the strings "gene", "disease", "drug",
+and similar generic terms are never sent to an authority, because "gene" would
+match "Gene Autry" and "variant" would match "SARS-CoV-2 Omicron variant".
+
+The synonym cache is persisted to disk after each paper and loaded at the start
+of each new extraction run. It is the primary mechanism for cross-paper entity
+continuity: once ACTH is resolved to `C0001655`, every subsequent paper that
+mentions ACTH skips all five lookup steps and returns the cached CUI immediately.
+
+#### Stage 2: deduplication and promotion
+
+The `ingest.py` stage reads all per-paper bundle files and merges them into a
+single entity graph. Deduplication happens at two levels.
+
+**Name-based dedup.** The synonym cache provides exact and normalized matches.
+British/American spelling normalization handles `tumour`/`tumor`,
+`haemoglobin`/`hemoglobin`, and similar pairs. This is a simple lookup
+-- no LLM, no embeddings.
+
+**Embedding-based dedup.** Entities that pass name-based dedup are checked
+against stored embeddings using cosine similarity. Entities above a configurable
+threshold are candidates for merging. The domain service's `select_survivor`
+method picks the canonical name (prefer longer, prefer authoritative over
+provisional).
+
+**`SAME_AS` resolution.** When the extraction model emits a `SAME_AS`
+relationship between two entity IDs, the dedup pass treats it as a merge
+instruction. The surviving entity absorbs the other's alias list, relationship
+references, and usage count.
+
+**Promotion.** An entity is promoted from provisional to canonical when it meets
+the promotion thresholds (`min_usage_count=1`, `min_confidence=0.4`) and a
+canonical ID can be assigned. The promotion policy runs the same authority
+lookup chain as stage 1, but with the full accumulated evidence: an entity that
+missed the UMLS lookup during initial extraction because it appeared as an
+obscure abbreviation may match correctly when the full name has been established
+through dedup.
+
+#### Stage 3: relationship aggregation
+
+After entity IDs are stable, the relationship extraction pass runs over each
+paper's relationship array. Subject and object IDs are rewritten to the
+post-dedup canonical IDs. Relationships with the same `(subject, predicate,
+object)` triple from different papers are merged: their `source_documents` lists
+are unioned, their confidence scores are averaged, and a multi-source
+relationship record is produced.
+
+The result is a graph where a relationship like
+`TREATS(olaparib, BRCA2-associated breast cancer)` carries not just a
+confidence score but the full list of papers that support it. "How well-
+supported is this claim?" is a field lookup, not a search.
+
+#### Stage 4: bundle build
+
+`build_bundle.py` serializes the merged graph to the `kgbundle` format:
+`manifest.json`, `entities.jsonl`, `relationships.jsonl`, `mentions.jsonl`,
+and `evidence.jsonl`. This bundle is the input to the query server.
+
+### 3.4 How this differs from Holmes
+
+The table below contrasts the two domains on the dimensions that produced
+different architectural decisions.
+
+| | Holmes | Medical literature |
+|---|---|---|
+| **Corpus size** | One story | Hundreds of papers |
+| **Ontology authority** | Baker Street Wiki (fan wiki) | UMLS, HGNC, RxNorm, UniProt |
+| **Resolution method** | LLM judgment per entity | Deterministic API + LLM for misses |
+| **Entity clustering** | Batch per story | Per-mention with shared cache |
+| **Predicate model** | One class per predicate type | Single class with predicate field |
+| **Higher-order preds** | `KnewAt`, `Contradicts` | Not needed |
+| **Key epistemic complexity** | Deception, belief states | Study design, evidence grading |
+| **Section provenance** | Paragraph index | Section name + paragraph index |
+| **Spelling variation** | Literary circumlocution | British/American spelling |
+| **LLM allocation** | Frontier for clustering, local for NER/triplets | Frontier for extraction, deterministic for resolution |
+
+The most important difference is the resolution method. Holmes required a
+frontier model for entity clustering because literary circumlocution --
+"my royal client", "Count Von Kramm", "His Majesty" -- is a reasoning problem,
+not a lookup problem. Medical literature requires a deterministic authority
+lookup because "ACTH" has exactly one correct canonical ID and the UMLS API
+knows it.
+
+The predicate model difference reflects scale. At one story with fifteen
+predicate types, separate Python classes per predicate type gives better static
+checking and is worth the overhead. At hundreds of papers with a vocabulary that
+evolves as new entity types are added, the single-class-plus-field model is
+easier to maintain. Neither is wrong; the choice depends on the domain's scale
+and rate of change.
+
+### 3.5 The Cushing's disease case study
+
+The reference implementation was exercised on a corpus of 36 PubMed Central
+papers on Cushing disease and related endocrinology. This corpus is small enough
+to be completely understood, specific enough to have clear entity and
+relationship density, and rich enough in multi-source relationships to
+demonstrate the aggregation machinery.
+
+Cushing disease\index{Cushing disease} is a rare pituitary condition caused by a
+benign tumor of the pituitary gland\index{pituitary gland} that secretes excess
+adrenocorticotropic hormone (ACTH\index{ACTH}). The excess ACTH drives the adrenal
+glands to produce excess cortisol\index{cortisol}, producing the systemic effects of
+hypercortisolism: weight gain, hypertension, osteoporosis, and metabolic
+dysregulation.
+
+The entity structure of the disease maps directly onto the typed schema:
+
+- `ACTH` -- `HormoneEntity`, UMLS `C0001655`, resolved without LLM
+- `Cushing disease` -- `DiseaseEntity`, UMLS `C0221406`
+- `Cushing syndrome` -- `DiseaseEntity`, UMLS `C0010481` (a broader category)
+- `pituitary adenoma` -- `DiseaseEntity`
+- `cortisol` -- `HormoneEntity`, UMLS `C0020268`
+- `osilodrostat` -- `DrugEntity`, RxNorm lookup
+- `transsphenoidal surgery` -- `ProcedureEntity`
+- `desmopressin` -- `DrugEntity`, RxNorm `3251`; appears as a
+  diagnostic agent in stimulation tests, not primarily therapeutic
+
+The `SUBTYPE_OF(Cushing disease, Cushing syndrome)` edge encodes the
+hierarchical relationship between the pituitary-specific form and the broader
+syndrome category. This is the kind of claim that is easy to assert and hard to
+use if it is not in the graph: a query for treatments of Cushing syndrome should
+be able to traverse the subtype edge and find treatments documented for Cushing
+disease specifically.
+
+The desmopressin case illustrates a non-obvious structural relationship. In the
+corpus, desmopressin appears in stimulation tests for differential diagnosis of
+Cushing disease -- distinguishing pituitary from ectopic ACTH sources -- rather
+than as a direct therapeutic agent. This is only visible in the graph through
+structural traversal: desmopressin connects to ACTH via stimulation protocols,
+ACTH connects to Cushing disease via `CAUSES`, and the procedure cluster
+(bilateral inferior petrosal sinus sampling, transsphenoidal surgery) connects
+via diagnostic context. No single paper states this relationship explicitly.
+It is emergent from the graph structure.
+
+The Cushing corpus was also the first test of multi-source relationship
+aggregation at meaningful scale. The claim `TREATS(pasireotide, Cushing disease)`
+appeared in seven of the thirty-six papers. After aggregation, the relationship
+record carries all seven as `source_documents`, with per-paper confidence scores.
+The compound confidence -- all seven papers at varying confidence levels -- is
+more trustworthy than any single paper alone, and the aggregation makes that
+trustworthiness explicit and queryable.
 
 ## Chapter 4: Domain Services -- What the Wall Contains
 
