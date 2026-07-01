@@ -35,10 +35,18 @@ for ARG in "$@"; do
         -e 's/\\\\_/\\_/g' \
         "${NAME}.md" > "$MDTMP"
 
+    # A doc-specific Lua filter (e.g. for custom table column widths) is
+    # picked up automatically when it sits next to the source file.
+    LUAFILTER=""
+    if [ -f "${NAME}.lua" ]; then
+        LUAFILTER="--lua-filter=${NAME}.lua"
+    fi
+
     pandoc "$MDTMP" \
         -o "${NAME}.pdf" \
         --pdf-engine="/Library/TeX/texbin/xelatex" \
         -H "$TMPFILE" \
+        $LUAFILTER \
         -V geometry:margin=0.75in \
         -V fontsize=11pt \
         -V mainfont="Georgia" \
