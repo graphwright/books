@@ -2690,6 +2690,18 @@ The named traits are special cases of Datalog rules:
 | `Symmetric` | $p(x, y) \Rightarrow p(y, x)$ |
 | `Inverse(p')` | $p(x, y) \Rightarrow p'(y, x)$ |
 
+> **Note on implementation status:** as of this writing, no rule engine
+> exists in `ner_20260608`. The named traits are inert marker classes,
+> introspectable via `issubclass` and `get_inverse`, but nothing walks
+> the schema and fires them. The one trait-adjacent traversal that does
+> exist, `Graph.transitive_closure`, answers a reachability query at
+> call time -- it never asserts a new predicate instance into $V$.
+> `docs/datalog_rules.md` works through this gap in detail: how to write
+> a `Rule(phi => psi)` as a plain Python function that respects the
+> Datalog restrictions above, worked examples against the Bohemia corpus
+> (including the `Possesses`-from-`Involves` derivation left undone in
+> the cookbook), and a sketch of a fixed-point runner.
+
 #### Truth status
 
 Every predicate instance carries a `truth_status` field:

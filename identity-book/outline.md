@@ -346,6 +346,7 @@ Sections:
 5. The validity constraint: field conformance, domain/range enforcement via Pydantic
 6. Trait vocabulary: Symmetric, Transitive, Functional, InverseFunctional, Inverse($p'$), Rule($\phi \Rightarrow \psi$)
 7. Rule($\phi \Rightarrow \psi$) as a Datalog Horn clause: decidability, least fixed point, Datalog restrictions
+   - Implementation-status callout: no rule engine exists yet; named traits are inert markers, `transitive_closure` is query-only, not materializing. See `docs/datalog_rules.md` for the practitioner's-guide treatment (worked examples, fixed-point runner sketch).
 8. Truth status: the asserted graph, the closed-world assumption, the lifecycle
 9. Provenance: the sub-schema requirement, the two id regimes (pipeline-extracted vs. content-addressed)
 10. Hard rules R1–R10
@@ -369,3 +370,4 @@ Sections:
 | Ch 6 | `src/ner_20260608/graph.py`, `docs/cookbook.md`; MCP tools **partially documented** |
 | Ch 7 | BigChat.md (SQS/ECS sketch); **not implemented** |
 | Appendix | `docs/formal_spec.md` (verbatim with minor reorganization) |
+| Appendix, Rule($\phi \Rightarrow \psi$) note | `docs/datalog_rules.md`; **no rule engine implemented yet** |
