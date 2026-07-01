@@ -4,7 +4,7 @@ This defines the formal model precisely, establishes vocabulary, states hard rul
 and lists explicit non-goals. When in doubt, check against this file before generating
 code, prose, or schema definitions.
 
-The notation itself isn't the point — the benefits come from what the process of
+The notation itself isn't the point -- the benefits come from what the process of
 formalizing forces, and those benefits survive translation into plain prose.
 
 **It settles ambiguity permanently.** Natural language descriptions of data structures
@@ -32,7 +32,7 @@ its content. Merging, deduplication, and cross-reference all become well-defined
 operations.
 
 **It grounds every claim in its source.** A proposition without provenance is not
-reliable knowledge — it is an unverifiable assertion. When every predicate instance
+reliable knowledge -- it is an unverifiable assertion. When every predicate instance
 carries a declared provenance sub-schema, tracing any fact back to its origin is a
 field lookup, not a search. That discipline propagates into ingestion pipelines,
 dispute resolution, and epistemic audits.
@@ -41,28 +41,28 @@ dispute resolution, and epistemic audits.
 
 ## Formal Definition
 
-A typed graph $G$ is a 4-tuple $\mathbf{(T,\ \Phi,\ V,\ \tau)}$ where:
+A typed graph $G$ is a 4-tuple $\boldsymbol{(T,\ \Phi,\ V,\ \tau)}$ where:
 
-### Schema layer — fixed at graph-design time
+### Schema layer -- fixed at graph-design time
 
-- $T$ — finite set of **types**, partitioned into:
-  * $T_\text{ent}$ — **entity types** (e.g. Person, Drug, Location)
-  * $T_\text{pred}$ — **predicate types** (e.g. Treats, KnewAt, LocatedIn)
-- $\Phi: T \to \text{FieldSchema}$ — the **field schema**, mapping each type to a
+- $T$ -- finite set of **types**, partitioned into:
+  * $T_\text{ent}$ -- **entity types** (e.g. Person, Drug, Location)
+  * $T_\text{pred}$ -- **predicate types** (e.g. Treats, KnewAt, LocatedIn)
+- $\Phi: T \to \text{FieldSchema}$ -- the **field schema**, mapping each type to a
   Pydantic model declaration of named, typed fields. For predicate types,
   $\Phi$ includes three distinguished fields:
-  * `subject` — typed reference to an instance in $V$; the type annotation
+  * `subject` -- typed reference to an instance in $V$; the type annotation
     constitutes $\text{dom}(p)$
-  * `object_` — typed reference to an instance in $V$; the type annotation
+  * `object_` -- typed reference to an instance in $V$; the type annotation
     constitutes $\text{ran}(p)$
-  * `truth_status` — the graph's current commitment to the proposition
+  * `truth_status` -- the graph's current commitment to the proposition
     this instance expresses
 - For each $p \in T_\text{pred}$:
-  * $\text{dom}(p) \subseteq T$ — permitted subject types, read from the type
+  * $\text{dom}(p) \subseteq T$ -- permitted subject types, read from the type
     annotation of `subject` in $\Phi(p)$
-  * $\text{ran}(p) \subseteq T$ — permitted object types, read from the type
+  * $\text{ran}(p) \subseteq T$ -- permitted object types, read from the type
     annotation of `object_` in $\Phi(p)$
-  * $\text{Tr}(p) \subseteq \text{Trait}$ — finite set of semantic traits
+  * $\text{Tr}(p) \subseteq \text{Trait}$ -- finite set of semantic traits
 
 The partition is strict: $T_\text{ent} \cap T_\text{pred} = \emptyset$ and
 $T_\text{ent} \cup T_\text{pred} = T$. Every type is exactly one of the two;
@@ -76,15 +76,15 @@ under a common root class `Instance`, which carries membership in $V$ (the
 unambiguously on one side of the partition.
 
 The field schema $\Phi$ is the central structural definition. It defines what each
-type IS — including whether a type is a predicate (carries subject/object/truth_status)
+type IS -- including whether a type is a predicate (carries subject/object/truth_status)
 or a plain entity (does not). Domain and range constraints, truth semantics, and
 field validation all derive from $\Phi$. The graph topology is emergent: it is
 recovered by reading the subject/object fields of predicate-typed instances.
 
-### Instance layer — populated at ingestion or reasoning time
+### Instance layer -- populated at ingestion or reasoning time
 
-- $V$ — set of all **instances** (both entity instances and predicate instances)
-- $\tau: V \to T$ — type assignment for all instances
+- $V$ -- set of all **instances** (both entity instances and predicate instances)
+- $\tau: V \to T$ -- type assignment for all instances
 
 The **edge set** $E$ is derived, not primitive:
 
@@ -94,7 +94,7 @@ $$
 
 $E \subseteq V$, that is,
 every member of $E$ is also a member of $V$. A predicate instance is a full
-member of $V$ — it has an id, it can be referenced by other predicate instances
+member of $V$ -- it has an id, it can be referenced by other predicate instances
 as their subject or object. This is the single relaxation relative to the
 classical graph formalism, where $V$ and $E$ are disjoint sorts. It is what
 enables higher-order predication without a separate reification mechanism.
@@ -108,21 +108,21 @@ $$\forall\, v, v' \in V:\ v \neq v' \Rightarrow v.\text{id} \neq v'.\text{id}$$
 
 That is, $\text{id}$ is injective on $V$. The identifier is:
 
-- **Assigned at construction** — not derived from any mutable field or external state
-- **Stable** — once assigned, it does not change (consistent with R7)
-- **Non-dispatch** — the id string is never parsed to recover type; type is the
+- **Assigned at construction** -- not derived from any mutable field or external state
+- **Stable** -- once assigned, it does not change (consistent with R7)
+- **Non-dispatch** -- the id string is never parsed to recover type; type is the
   exclusive responsibility of $\tau$ and the Python class hierarchy. Human-readable
   id schemes (external ontology keys, corpus-namespaced slugs) are permitted as long
   as no code branches on the string content to determine a type.
-- **Ontology-anchored where possible** — for entity instances that correspond to
+- **Ontology-anchored where possible** -- for entity instances that correspond to
   real-world referents, the id should be sourced from or aligned with a community-curated
   authoritative ontology (e.g. Wikidata QIDs, MeSH IDs, a domain-specific authority
   such as Baker Street Wiki). Minting ad-hoc IDs for named entities that have
   established canonical IDs elsewhere is a traceability failure.
 
 Display is separate from identity. Instances implement `__str__` to return a
-human-readable label — `display_name` for entities that carry one, `description`
-or `label` for synthetic entities, and `ClassName(subject → object)` for predicate
+human-readable label -- `display_name` for entities that carry one, `description`
+or `label` for synthetic entities, and `ClassName(subject -> object)` for predicate
 instances. This presentation string is one-way: it is generated for human
 consumption and is never parsed back to recover an id, type, or field value.
 
@@ -150,14 +150,14 @@ class. The unparameterized traits (`Symmetric`, `Transitive`, `Functional`,
 `InverseFunctional`) are plain marker classes. `Inverse` is a generic parameterized
 by the partner predicate type.
 
-#### Rule(φ ⇒ ψ) — Datalog rules
+#### Rule($\varphi$ $\Rightarrow$ $\psi$) -- Datalog rules
 
-`Rule(φ ⇒ ψ)` is a **Datalog rule** — a Horn clause restricted to positive,
+Rule($\varphi$ $\Rightarrow$ $\psi$) is a **Datalog rule** -- a Horn clause restricted to positive,
 function-symbol-free literals:
 
-- **φ (body)** — a conjunction of positive graph pattern conditions: variable
+- **$\varphi$ (body)** -- a conjunction of positive graph pattern conditions: variable
   bindings over instances in $V$ that must all hold in the asserted graph
-- **ψ (head)** — a single derived predicate instance to assert when φ is satisfied
+- **$\psi$ (head)** -- a single derived predicate instance to assert when $\varphi$ is satisfied
 
 Formally, a rule with variables $x_1, \ldots, x_n$ has the shape:
 
@@ -166,8 +166,8 @@ p_1(x_{a_1}, x_{b_1}) \wedge \cdots \wedge p_k(x_{a_k}, x_{b_k})\ \Rightarrow\ p
 $$
 
 where each $p_i \in T_\text{pred}$ and each $x_j$ ranges over $V$. The Datalog
-restrictions — no function symbols, no negation, no existential variables in the
-head — keep inference decidable and the semantics clean: rule application is
+restrictions -- no function symbols, no negation, no existential variables in the
+head -- keep inference decidable and the semantics clean: rule application is
 iterated to a **least fixed point** over the asserted graph. Every derived instance
 enters $V$ as a full member with its own id and provenance (R10 applies; the
 `extraction_method` is `inferred`).
@@ -182,7 +182,7 @@ without the full `Rule` form:
 | `Inverse(p')` | $p(x, y) \Rightarrow p'(y, x)$ |
 
 `Rule` is the escape hatch for any inference pattern that does not fit those named
-forms — cross-predicate rules, multi-hop chains, or rules with more than two body
+forms -- cross-predicate rules, multi-hop chains, or rules with more than two body
 literals. Unlike the named traits, `Rule` has no clean Python type-level expression;
 it is declared in prose on the predicate class and realized as a callable that the
 inference engine invokes during fixed-point computation.
@@ -192,14 +192,14 @@ inference engine invokes during fixed-point computation.
 Every predicate instance carries a `truth_status` field:
 
 $$
-\text{TruthStatus} ::= \text{asserted\\_true} \mid \text{asserted\\_false} \mid \text{hypothetical} \mid \text{disputed} \mid \text{retracted}
+\text{TruthStatus} ::= \text{asserted\_true} \mid \text{asserted\_false} \mid \text{hypothetical} \mid \text{disputed} \mid \text{retracted}
 $$
 
 Under the closed-world assumption, the presence of a predicate instance does NOT
 by itself assert the proposition; the `truth_status` field carries the assertion
 explicitly. This replaces the classical convention where edge-presence is assertion.
 
-The **asserted graph** — the first-order fact graph available for traversal — is
+The **asserted graph** -- the first-order fact graph available for traversal -- is
 the projection of $E$ where `truth_status = asserted_true`. A disputed proposition
 remains in $V$ (it can be referenced, queried, and reasoned about) but is excluded
 from the asserted graph.
@@ -210,13 +210,13 @@ mention, promoted to `asserted_true` when grounded, and may later become `disput
 
 ### Provenance
 
-Every predicate instance carries a **provenance sub-schema** — a distinguished set
+Every predicate instance carries a **provenance sub-schema** -- a distinguished set
 of fields in $\Phi(p)$ that record how the assertion was produced. The minimum
 provenance fields required for any $p \in T_\text{pred}$ are:
 
-- `source` — the origin of the claim: a text span, document reference, or extraction
+- `source` -- the origin of the claim: a text span, document reference, or extraction
   method identifier
-- `extraction_method` — how the claim was derived: direct quotation, inference, model
+- `extraction_method` -- how the claim was derived: direct quotation, inference, model
   extraction, manual annotation
 
 Additional provenance fields may be declared per predicate type in $\Phi(p)$. The
@@ -226,13 +226,13 @@ Provenance fields are instance metadata (R2): they describe how this particular
 assertion was produced, not what the predicate type means. The distinction matters:
 two instances of the same predicate type may have identical `subject`, `object_`, and
 `truth_status` and differ only in provenance. Both are valid, distinct members of $V$
-— their ids differ.
+-- their ids differ.
 
 This property holds as stated for **pipeline-extracted** instances, where the
 extraction pipeline assigns a unique id per extraction event. It does not hold for
 **canonical-fact** construction via `statement_id()`, which is content-addressed on
 `(subject, predicate_name, object)` alone. In that pattern, re-constructing the same
-fact (e.g. from a different paragraph) yields the same id deliberately — re-extraction
+fact (e.g. from a different paragraph) yields the same id deliberately -- re-extraction
 is treated as confirmation, not as a new member of $V$. Use `statement_id()` when you
 want canonical standing facts that collapse duplicates; assign unique ids per
 extraction event when you want a full audit trail of every derivation. The two
@@ -247,33 +247,33 @@ the audit trail behind that commitment.
 
 ## Vocabulary
 
-Use these terms consistently throughout the book. Do not treat them as synonyms.
+These are technical terms that should be used correctly and consistently.
 
 | Term                  | Definition |
 |-----------------------|------------|
-| **Instance**          | A member of $V$ — the common root of both sorts. Realized as the Python class `Instance`, which carries the `id` field and the frozen model configuration. Every entity instance and every statement is an Instance; nothing else is. |
+| **Instance**          | A member of $V$ -- the common root of both sorts. Realized as the Python class `Instance`, which carries the `id` field and the frozen model configuration. Every entity instance and every statement is an Instance; nothing else is. |
 | **Entity type**       | A member of $T_\text{ent}$. Realized as a Python class inheriting from `EntityInstance`. Defines a class of entities: the fields they carry and their permitted roles in predicates. Example: `Person`, `Location`, `Moment`. |
 | **Predicate type**    | A member of $T_\text{pred}$. Realized as a Python class inheriting from `BaseStatement`. Defines a class of propositions: their field schema, domain, range, traits, and truth status. Example: `LocatedIn`, `KnewAt`, `Treats`. |
-| **Entity instance**   | A member of $V$ with $\tau(v) \in T_\text{ent}$. A concrete node — an instance of an `EntityInstance` subclass with an `id` and data fields. Example: a specific `Person` instance for Sherlock Holmes. A Statement is *not* an entity instance; both are Instances. |
-| **Statement**         | A member of $V$ with $\tau(v) \in T_\text{pred}$. A concrete proposition — an instance of a `BaseStatement` subclass with an `id`, a `subject`, an `object_`, a `truth_status`, and metadata fields. Also a member of $E$ (the derived edge set). The term "edge instance" is an informal synonym when traversing the asserted graph. |
+| **Entity instance**   | A member of $V$ with $\tau(v) \in T_\text{ent}$. A concrete node -- an instance of an `EntityInstance` subclass with an `id` and data fields. Example: a specific `Person` instance for Sherlock Holmes. A Statement is *not* an entity instance; both are Instances. |
+| **Statement**         | A member of $V$ with $\tau(v) \in T_\text{pred}$. A concrete proposition -- an instance of a `BaseStatement` subclass with an `id`, a `subject`, an `object_`, a `truth_status`, and metadata fields. Also a member of $E$ (the derived edge set). The term "edge instance" is an informal synonym when traversing the asserted graph. |
 | **Field schema**      | $\Phi(t)$: the Pydantic model declaration of named fields and their types for type $t$. For predicate types, $\Phi$ includes `subject`, `object_`, and `truth_status` as distinguished fields whose type annotations constitute domain, range, and truth semantics. |
-| **Domain**            | $\text{dom}(p)$ — the set of types permitted in the subject role for predicate $p$. Read from the type annotation of `subject` in $\Phi(p)$. |
-| **Range**             | $\text{ran}(p)$ — the set of types permitted in the object role for predicate $p$. Read from the type annotation of `object_` in $\Phi(p)$. When $\text{ran}(p)$ includes a predicate type (i.e. a `BaseStatement` subclass), predicate $p$ enables higher-order claims. |
+| **Domain**            | $\text{dom}(p)$ -- the set of types permitted in the subject role for predicate $p$. Read from the type annotation of `subject` in $\Phi(p)$. |
+| **Range**             | $\text{ran}(p)$ -- the set of types permitted in the object role for predicate $p$. Read from the type annotation of `object_` in $\Phi(p)$. When $\text{ran}(p)$ includes a predicate type (i.e. a `BaseStatement` subclass), predicate $p$ enables higher-order claims. |
 | **Trait**             | A declarative semantic property of a predicate type. Member of $\text{Tr}(p)$. Belongs to the schema, not to any instance. Realized as a Python mixin class. |
 | **Schema**            | The tuple $(T,\ \Phi)$ together with trait declarations. Fixed at graph-design time. |
 | **Instance graph**    | The tuple $(V,\ \tau)$. Populated at ingestion or reasoning time. |
 | **Asserted graph**    | The subset of $E$ where `truth_status = asserted_true`, indexed for traversal. The first-order fact graph. |
-| **Canonical identifier** | The value of $v.\text{id}$ for instance $v \in V$. Globally unique within $V$, assigned at construction, and immutable. The Python realization is a `str` field on the `Instance` root class. For real-world entities, ids are sourced from authoritative ontologies (community-curated over long periods) rather than minted ad hoc; see the ontology authority declared in the domain section. The id is never parsed to recover type or structure — type is the exclusive responsibility of $\tau$. Human-readable display is the responsibility of `__str__`, which is a separate, one-way presentation artifact. |
+| **Canonical identifier** | The value of $v.\text{id}$ for instance $v \in V$. Globally unique within $V$, assigned at construction, and immutable. The Python realization is a `str` field on the `Instance` root class. For real-world entities, ids are sourced from authoritative ontologies (community-curated over long periods) rather than minted ad hoc; see the ontology authority declared in the domain section. The id is never parsed to recover type or structure -- type is the exclusive responsibility of $\tau$. Human-readable display is the responsibility of `__str__`, which is a separate, one-way presentation artifact. |
 | **Provenance**        | The set of fields $\Pi(p) \subseteq \Phi(p)$ that record how a predicate instance was produced: its source, extraction method, and any confidence scores. Provenance belongs to the instance (R2), is declared in the field schema (R10), and is distinct from truth status, which records the graph's current epistemic commitment to the proposition. |
 
 ### Terms to avoid or use carefully
 
-- **Edge** — informal synonym for Statement when discussing traversal. Acceptable in casual prose; in definitions, use "Statement" or "predicate instance."
-- **Relationship** — use this to mean a predicate instance, never a predicate type.
-- **Node** — informal synonym for entity instance. Acceptable in casual prose, not in definitions.
-- **Property** — overloaded; could mean a field on an instance or a trait on a predicate type. Be explicit.
-- **Entity** — do not use as a synonym for "member of $V$." A Statement is a member of $V$ but is not an entity instance. When V-membership is what's meant, say "Instance."
-- **Reification** — in this model, there is nothing to reify. Every predicate instance is already a member of $V$ and can be referenced by any predicate whose range includes its type. The word applies to models where edges and vertices are disjoint sorts; here they are not.
+- **Edge** -- informal synonym for Statement when discussing traversal. Acceptable in casual prose; in definitions, use "Statement" or "predicate instance."
+- **Relationship** -- use this to mean a predicate instance, never a predicate type.
+- **Node** -- informal synonym for entity instance. Acceptable in casual prose, not in definitions.
+- **Property** -- overloaded; could mean a field on an instance or a trait on a predicate type. Be explicit.
+- **Entity** -- do not use as a synonym for "member of $V$." A Statement is a member of $V$ but is not an entity instance. When V-membership is what's meant, say "Instance."
+- **Reification** -- in this model, there is nothing to reify. Every predicate instance is already a member of $V$ and can be referenced by any predicate whose range includes its type. The word applies to models where edges and vertices are disjoint sorts; here they are not.
 
 ---
 
@@ -284,12 +284,12 @@ examples, schema designs, or explanatory prose.
 
 **R1. Traits belong to predicate types, never to instances.** A predicate either
 has `Transitive` or it does not. That is part of what the predicate *means*. An
-individual instance cannot be transitive or non-transitive — that distinction
+individual instance cannot be transitive or non-transitive -- that distinction
 belongs to its type. In Python, traits are declared by inheriting the trait mixin
 class alongside `BaseStatement`.
 
 **R2. Metadata fields belong to instances, never to predicate types.** Provenance,
-confidence, timestamps — all of these are facts about a particular assertion. They
+confidence, timestamps -- all of these are facts about a particular assertion. They
 live on the instance. The predicate type defines which fields are required (via
 $\Phi$), but carries no values itself.
 
@@ -322,13 +322,13 @@ mutated after construction.
 **R8. Higher-order predication is a schema-level type declaration, not a runtime
 promotion.** A predicate enables higher-order claims when its range includes a
 predicate type (a `BaseStatement` subclass). This is declared once in $\Phi$ at
-schema design time — e.g. `object_: BaseStatement` on `KnewAt`. There is no runtime
+schema design time -- e.g. `object_: BaseStatement` on `KnewAt`. There is no runtime
 "promotion" of instances between layers. Every predicate instance is a referable
 member of $V$ from birth; whether any other predicate can point at it is determined
 by the type declarations in $\Phi$.
 
 Do **not** use higher-order predication to attach provenance, confidence, or
-epistemic metadata to a proposition. That is R2's job — such fields belong on the
+epistemic metadata to a proposition. That is R2's job -- such fields belong on the
 instance directly, declared in $\Phi$. Higher-order predication is for *predicating
 over* a proposition (knowing it, disputing it, supporting it), not for *annotating*
 one. Using it for annotation reintroduces exactly the overhead this model exists to
@@ -341,7 +341,7 @@ authoritative ontology (community-curated over time, e.g. Wikidata QIDs, MeSH ID
 or a domain-specific authority such as Baker Street Wiki). Minting ad-hoc IDs for
 named entities that have established canonical IDs elsewhere is a traceability failure.
 
-The id string must never be parsed to recover type or relationship structure — type
+The id string must never be parsed to recover type or relationship structure -- type
 is the exclusive responsibility of $\tau$ and the Python class hierarchy. Any code
 that branches on id content to determine a type is a violation of R6 and R9.
 
@@ -354,20 +354,20 @@ ontology anchor should use corpus-namespaced slugs without a type segment
 *Content-addressed statement ids* are a deliberate exception: `statement_id()`
 embeds the predicate name and participant ids (e.g.
 `stmt:wiki:Holmes:Knows:wiki:Watson`) for traceability and idempotent
-construction. The embedded predicate name is there for debugging, not dispatch —
+construction. The embedded predicate name is there for debugging, not dispatch --
 nothing in the system parses it back to determine a type. This is structurally
 different from the discouraged synthetic-entity pattern, where the type segment
 carries no information not already provided by Python's class hierarchy.
 
 Human-readable display is the responsibility of `__str__`, not `id`. `__str__`
 returns `display_name` for entities that carry one, `description`/`label` for
-synthetic entities, and `ClassName(subject → object)` for predicate instances.
-It is a one-way presentation artifact — generated for human consumption, never
+synthetic entities, and `ClassName(subject -> object)` for predicate instances.
+It is a one-way presentation artifact -- generated for human consumption, never
 parsed back.
 
 **R10. Every predicate type declares a provenance sub-schema.** $\Phi(p)$ must include
 at minimum `source` and `extraction_method` for all $p \in T_\text{pred}$. These
-fields are required, not optional — a predicate instance constructed without provenance
+fields are required, not optional -- a predicate instance constructed without provenance
 is a schema violation. Downstream consumers that cannot identify the origin of a claim
 cannot audit, dispute, or weight it.
 
@@ -376,17 +376,17 @@ cannot audit, dispute, or weight it.
 ## Python Enforcement Pattern
 
 The class hierarchy mirrors the formalism exactly. A single root class,
-`Instance`, carries the `id` field and the frozen model configuration — it
+`Instance`, carries the `id` field and the frozen model configuration -- it
 realizes membership in $V$. Entity types are `EntityInstance` subclasses;
 predicate types are `BaseStatement` subclasses with trait mixins inherited
 alongside. `EntityInstance` and `BaseStatement` are disjoint siblings under
 `Instance`: the sibling split realizes the strict partition of $T$, and
-`BaseStatement` ⊂ `Instance` realizes $E \subseteq V$. A statement is
+`BaseStatement` $\subset$ `Instance` realizes $E \subseteq V$. A statement is
 substitutable wherever "any member of $V$" is expected, and nowhere that
-specifically an entity is expected — the type system asserts exactly what is
+specifically an entity is expected -- the type system asserts exactly what is
 true and nothing more.
 
-Domain and range constraints are expressed as Pydantic field type annotations —
+Domain and range constraints are expressed as Pydantic field type annotations --
 no custom validation logic is needed. Traits are introspectable at runtime
 (`issubclass(LocatedIn, Transitive)`), and `get_inverse` resolves declared
 inverse pairs. The full schema is in `src/holmes_schema.py`.
@@ -420,7 +420,7 @@ description logic, that is scope creep.
 and range enforcement is the job of the Python type system and Pydantic, not of
 string parsing. Any code that parses an identifier string to determine or dispatch
 on a type is a violation of R6. Human-readable id schemes (external ontology keys,
-corpus-namespaced slugs) are not themselves a violation — the violation is parsing
+corpus-namespaced slugs) are not themselves a violation -- the violation is parsing
 them for type dispatch. Human-readable display is the responsibility of `__str__`,
 not `id`.
 
@@ -431,11 +431,11 @@ not `id`.
 The worked example uses the Sherlock Holmes canon as domain.
 
 - **Ontology authority**: Baker Street Wiki (https://bakerstreet.fandom.com)
-- **Schema construction method**: inductive — built by annotating stories, not pre-designed
+- **Schema construction method**: inductive -- built by annotating stories, not pre-designed
 - **Primary stories**: "A Scandal in Bohemia" (complete); "The Speckled Band" (planned)
 - **Provisional entity types**: `Person`, `Location`, `Object`, `Document`,
   `Moment`, `Event`, `Persona`, `Plan`
-- **Higher-order predicates**: `KnewAt`, `Contradicts` — these take `BaseStatement`
+- **Higher-order predicates**: `KnewAt`, `Contradicts` -- these take `BaseStatement`
   in their range, enabling epistemic and dispute tracking
 - **Epistemic fields on predicate instances**: `moment`, `narrator_confidence`,
   provenance fields
