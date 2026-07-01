@@ -73,10 +73,10 @@ inference. It adds three restrictions on top of the general Horn clause:
    Suppose you wanted every `Location` to have a "containing region,"
    and wrote (informally):
 
-   $$
-   \text{LocatedIn}(x, y) \Rightarrow
-   \text{LocatedIn}(x, \text{region\_containing}(x))
-   $$
+$$
+\text{LocatedIn}(x, y) \Rightarrow
+\text{LocatedIn}(x, \text{region\\_containing}(x))
+$$
 
    `region_containing(x)` is a function symbol: it manufactures a new
    term -- a synthetic region that is not one of the `Location`
@@ -89,10 +89,10 @@ inference. It adds three restrictions on top of the general Horn clause:
 
    Contrast that with the transitivity rule this system does use:
 
-   $$
-   \text{LocatedIn}(x, y) \wedge \text{LocatedIn}(y, z)
-   \Rightarrow \text{LocatedIn}(x, z)
-   $$
+$$
+\text{LocatedIn}(x, y) \wedge \text{LocatedIn}(y, z)
+\Rightarrow \text{LocatedIn}(x, z)
+$$
 
    Here `x`, `y`, and `z` are only ever *bound* to `Location` instances
    that already exist in $V$ -- Briony Lodge, St. John's Wood, London.

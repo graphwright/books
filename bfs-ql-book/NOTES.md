@@ -6,7 +6,7 @@
 |------|---------|
 | `outline.md` | High-level structure and chapter summaries. Edit this first. |
 | `text.md` | Full book prose. Chapters added here as they are written. |
-| `BFS-QL-SPEC.md` | The protocol spec — becomes the Appendix with minimal editing. |
+| `BFS-QL-SPEC.md` | The protocol spec -- becomes the Appendix with minimal editing. |
 | `references.bib` | BibTeX entries. Add entries here as citations appear in the outline. |
 | `README.md` | Product description / back-cover copy. |
 
@@ -40,7 +40,7 @@ The context window\index{context window} is a scarce resource.
 
 ## Back-matter order
 
-1. Appendix (BFS-QL Reference — migrated from `BFS-QL-SPEC.md`)
+1. Appendix (BFS-QL Reference -- migrated from `BFS-QL-SPEC.md`)
 2. References / Bibliography
 3. Index (always last)
 
@@ -58,7 +58,7 @@ for the reference build setup.
 is the companion volume. Same series, same publisher (Lulu / Graphwright
 Publications), same build toolchain.
 
-The coupling point in code: `KGraphPostgresBackend` — kgraph writes,
+The coupling point in code: `KGraphPostgresBackend` -- kgraph writes,
 BFS-QL reads.
 
 Canonical identity argument appears in both books:

@@ -62,7 +62,7 @@ representation of what is actually known. That is a knowledge graph.
 This book argues that machine reasoning becomes trustworthy in proportion to
 how precisely its knowledge is typed, sourced, and anchored to shared identity.
 Strong typing, provenance, and ontology alignment are not three separate features
-to weigh against each other — they are three conditions that must hold together
+to weigh against each other -- they are three conditions that must hold together
 before a graph can be trusted.
 
 Type systems in programming languages were originally invented as tools for
@@ -102,12 +102,12 @@ Before any of the failure modes, base vectors, or formal definitions, it helps
 to be precise about the basic object this book keeps returning to: a graph.
 
 A graph is nothing more than a set of things and a set of connections between
-them. Draw three dots on a page — Holmes, Watson, Baker Street — and connect
+them. Draw three dots on a page -- Holmes, Watson, Baker Street -- and connect
 Holmes to Watson with a line, and Holmes to Baker Street with another. That is a
 complete, if trivial, graph. The dots are usually called *nodes* or *vertices*;
 the connecting lines are *edges*.
 
-The first refinement is direction. "Holmes knows Watson" is naturally two-way —
+The first refinement is direction. "Holmes knows Watson" is naturally two-way --
 if Holmes knows Watson, Watson knows Holmes too. But "Holmes lives at Baker
 Street" only runs one way; Baker Street does not live at Holmes. Once edges have
 direction, you can distinguish these cases, and a graph becomes a more faithful
@@ -116,15 +116,15 @@ model of how relationships actually behave.
 The second refinement is labels. An unlabeled edge just says "these two things
 are connected," which is barely more useful than a list of pairs. Label the edge
 from Holmes to Watson `Knows`, and the edge from Holmes to Baker Street
-`LivesAt`, and the graph starts to say something. Add labels to the nodes too —
-`Person`, `Location` — and you can ask questions like "show me every `Person`
+`LivesAt`, and the graph starts to say something. Add labels to the nodes too --
+`Person`, `Location` -- and you can ask questions like "show me every `Person`
 connected to a `Location` by `LivesAt`," which is the seed of everything this
 book calls querying.
 
 The third refinement is metadata. A real-world claim usually carries more than
 just "this is connected to that." It carries *when* it was true, *how confident*
-you are, *where it came from*. Attach these as extra fields on the edge — not as
-separate nodes, just as data riding along with the connection — and the graph
+you are, *where it came from*. Attach these as extra fields on the edge -- not as
+separate nodes, just as data riding along with the connection -- and the graph
 starts to carry the kind of context a reasoning system actually needs.
 
 That, in barest form, is what people mean by **Graph RAG**: instead of
@@ -160,7 +160,7 @@ print(any(tgt == "Baker_St" for lbl, tgt in edges.get("Watson", [])))
 
 That is the whole idea: nodes, directed labeled edges, and a couple of
 dictionary lookups to ask questions of the structure. Everything else in this
-book — types, predicates, provenance, canonical IDs, BFS, transitive closure —
+book -- types, predicates, provenance, canonical IDs, BFS, transitive closure --
 is this same idea, made precise enough that a machine can use it without getting
 confused.
 
@@ -1137,10 +1137,11 @@ a `Knows` record may appear before the `Knows` record. Worse, a `Contradicts`
 may point at a `KnewAt` that points at a `Knows`, requiring three passes to
 resolve.
 
-The loader handles this with a fixpoint loop\index{fixpoint loop}. On the first
-pass, all first-order predicates are hydrated immediately. Higher-order
-predicates are deferred. The deferred list is retried in a loop until it stops
-shrinking:
+The loader handles this with a fixpoint loop\index{fixpoint loop} -- a loop
+that reruns the same step until another pass would change nothing, which is
+the point at which it has reached a fixpoint. On the first pass, all
+first-order predicates are hydrated immediately. Higher-order predicates are
+deferred. The deferred list is retried in a loop until it stops shrinking:
 
 ```python
 while deferred:
@@ -2509,17 +2510,17 @@ and test.
 
 There is a sharper version of this problem worth naming. Detecting Holmes's plan
 from a sequence of events is tractable precisely because Doyle has Holmes state
-his goal out loud before he acts on it — the pipeline only has to recognize a
+his goal out loud before he acts on it -- the pipeline only has to recognize a
 stated intention and gather the events that follow it, not infer a hidden
 purpose from silence. Most interesting scientific hypotheses are the opposite
 case. No single paper states "the unifying mechanism behind these twelve
-independently observed effects is X" — that synthesis is exactly what's missing,
+independently observed effects is X" -- that synthesis is exactly what's missing,
 and exactly what a human researcher's insight supplies. A graph that has
 correctly typed, sourced, and time-stamped a thousand papers' worth of claims
 has done the tractable part. It has not done the part that corresponds to
-Holmes's own deductive leap. Closing that gap — building a reasoning layer that
+Holmes's own deductive leap. Closing that gap -- building a reasoning layer that
 proposes the unstated unifying claim, rather than one that merely traverses and
-aggregates stated ones — is the harder problem underneath automated scientific
+aggregates stated ones -- is the harder problem underneath automated scientific
 discovery, in the lineage of King's robot scientists and their successors. This
 book's three base vectors are the precondition for that work, not a substitute
 for it: a system cannot responsibly propose what it cannot first trace, type,

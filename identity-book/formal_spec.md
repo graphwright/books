@@ -192,7 +192,7 @@ inference engine invokes during fixed-point computation.
 Every predicate instance carries a `truth_status` field:
 
 $$
-\text{TruthStatus} ::= \text{asserted\_true} \mid \text{asserted\_false} \mid \text{hypothetical} \mid \text{disputed} \mid \text{retracted}
+\text{TruthStatus} ::= \text{asserted\\_true} \mid \text{asserted\\_false} \mid \text{hypothetical} \mid \text{disputed} \mid \text{retracted}
 $$
 
 Under the closed-world assumption, the presence of a predicate instance does NOT
@@ -250,7 +250,7 @@ the audit trail behind that commitment.
 These are technical terms that should be used correctly and consistently.
 
 | Term                  | Definition |
-|-----------------------|------------|
+|--------------------|------------------------------------------------------------------|
 | **Instance**          | A member of $V$ -- the common root of both sorts. Realized as the Python class `Instance`, which carries the `id` field and the frozen model configuration. Every entity instance and every statement is an Instance; nothing else is. |
 | **Entity type**       | A member of $T_\text{ent}$. Realized as a Python class inheriting from `EntityInstance`. Defines a class of entities: the fields they carry and their permitted roles in predicates. Example: `Person`, `Location`, `Moment`. |
 | **Predicate type**    | A member of $T_\text{pred}$. Realized as a Python class inheriting from `BaseStatement`. Defines a class of propositions: their field schema, domain, range, traits, and truth status. Example: `LocatedIn`, `KnewAt`, `Treats`. |

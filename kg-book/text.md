@@ -183,11 +183,11 @@ My brother told an LLM:
 
 and of course he was told that on a nice day like this, he could use the exercise, so he should walk to the carwash. The model didn't know he would need his car in order to get it washed. The wrong answer was delivered with the same tone and confidence as a right one. That's the problem this book is about.
 
-Large language models are fluent, capable, and unreliable in ways that are hard to predict in advance. They fail not randomly but systematically: at the boundary of what their training covered, at questions that require grounded reasoning about specific domains, at any task where being wrong matters. The fix is not to distrust them entirely. It is to give them something reliable to reason from — a structured, inspectable, domain-specific representation of what is actually known. That is a knowledge graph.
+Large language models are fluent, capable, and unreliable in ways that are hard to predict in advance. They fail not randomly but systematically: at the boundary of what their training covered, at questions that require grounded reasoning about specific domains, at any task where being wrong matters. The fix is not to distrust them entirely. It is to give them something reliable to reason from -- a structured, inspectable, domain-specific representation of what is actually known. That is a knowledge graph.
 
 This is a book written in the age of Large Language Models, but the central thesis is about machine reasoning in general, now and in the future. Knowledge graphs predate LLMs and will outlast them, because they capture something essential to how humans understand and reason about complex fields in an explicit, structured form that can be shared and curated. A machine cannot reason reliably about such fields without knowledge encoded in some form of graph. The software projects described here are demonstrations of this thesis, not the subject of it. LLMs are enablers for the creation of knowledge graphs, which were much discussed in the past but only practical at scale now.
 
-This book intentionally addresses two kinds of reader. Some readers will come for the argument — the history of knowledge representation, the case for explicit structure, the implications of what becomes possible when extraction is tractable. Others will come for the engineering — the schema design, the pipeline architecture, the identity resolution, the serving layer. The book tries not to exclude either. Readers who want the argument can follow Part I and Part IV without getting lost in Part III. Readers who want the engineering will find it in Parts II and III, grounded in the argument of Part I.
+This book intentionally addresses two kinds of reader. Some readers will come for the argument -- the history of knowledge representation, the case for explicit structure, the implications of what becomes possible when extraction is tractable. Others will come for the engineering -- the schema design, the pipeline architecture, the identity resolution, the serving layer. The book tries not to exclude either. Readers who want the argument can follow Part I and Part IV without getting lost in Part III. Readers who want the engineering will find it in Parts II and III, grounded in the argument of Part I.
 
 ![](ExampleGraph.png)
 
@@ -703,7 +703,7 @@ The feedback loop is tight during development: run a small extraction batch, loa
 
 `\chaptermark{Design Priorities}`{=latex}
 
-This chapter examines the design decisions that matter most before you start building — specifically around provenance, which is the one you're most likely to underinvest in and most painful to retrofit. The examples are drawn from my own project, a knowledge graph to capture the contents of medical papers. I call this project "kgraph" in its domain-agnostic form, and "medlit" is the extension of the knowledge graph into the domain of medical literature.
+This chapter examines the design decisions that matter most before you start building -- specifically around provenance, which is the one you're most likely to underinvest in and most painful to retrofit. The examples are drawn from my own project, a knowledge graph to capture the contents of medical papers. I call this project "kgraph" in its domain-agnostic form, and "medlit" is the extension of the knowledge graph into the domain of medical literature.
 
 These notes should be regarded not as a recipe or specification that you must follow, but rather as a checklist of things worth considering. The approach suggested here might meet your needs, it might not. Thinking about them will help you reason through the details of your own design.
 
@@ -1142,7 +1142,7 @@ The artifact file captures what the LLM decided, before the identity server assi
 
 `raw_text` is stored as the original PMC XML rather than stripped plain text. PMC XML has explicit section labels (`<sec>`, `<title>`, `<p>`) that make section and paragraph extraction reliable, and preserving the structure means location references remain valid if the artifact is re-ingested later.
 
-Most paper metadata and cited references are available as structured fields in the PMC XML and are parsed directly by the fetch stage rather than extracted by the LLM. This makes them reliable and cheap — no prompt engineering required. Each cited PMC ID is also a candidate for further ingestion, making the reference list a natural source for corpus expansion.
+Most paper metadata and cited references are available as structured fields in the PMC XML and are parsed directly by the fetch stage rather than extracted by the LLM. This makes them reliable and cheap -- no prompt engineering required. Each cited PMC ID is also a candidate for further ingestion, making the reference list a natural source for corpus expansion.
 
 ```json
 {

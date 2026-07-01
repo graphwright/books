@@ -35,18 +35,18 @@ The core insight is:
 
 4. The 7-tuple formalization maps directly to Pydantic classes: vertex and edge type vocabularies become enums or constrained types, the typing functions become field validators, and the actual vertices and edges become model instances that reference their types.
 
-Now I'm mapping the formal structure onto concrete Python classes—base `TypedNode` and `TypedEdge` models that enforce the typing constraints, with domain-specific subclasses layering on their own vocabularies and validation rules.
+Now I'm mapping the formal structure onto concrete Python classes--base `TypedNode` and `TypedEdge` models that enforce the typing constraints, with domain-specific subclasses layering on their own vocabularies and validation rules.
 
-The real friction points are reconciling Python's static type system with the graph's runtime type system, keeping nodes and edges immutable as value objects while the graph container itself remains mutable, and recognizing that his existing kgraph code already embodies this pattern but could be more explicit about it. The sherlock ingestion pipeline he's building from scratch is essentially reinventing what kgraph already provides—that's where the refactoring opportunity lies.
+The real friction points are reconciling Python's static type system with the graph's runtime type system, keeping nodes and edges immutable as value objects while the graph container itself remains mutable, and recognizing that his existing kgraph code already embodies this pattern but could be more explicit about it. The sherlock ingestion pipeline he's building from scratch is essentially reinventing what kgraph already provides--that's where the refactoring opportunity lies.
 
 Defining the base architecture... I'm defining the validation methods for edges within the schema, then setting up a mutable graph container that holds frozen node and edge objects while enforcing schema constraints. After that, I'm creating a concrete Holmes domain schema with specific node types like characters, locations, objects, and events, along with edge types that define relationships between them like "knows," "located_at," and "possesses."
 
-The real architectural insight here is that all the core traversal logic, validation, and ingestion machinery lives in the base layer—Holmes just needs to provide its schema definition, which mirrors how clear type definitions clarified the problem space in the original work.
+The real architectural insight here is that all the core traversal logic, validation, and ingestion machinery lives in the base layer--Holmes just needs to provide its schema definition, which mirrors how clear type definitions clarified the problem space in the original work.
 ````
 
 </details>
 
-This is a really clean insight, and it maps directly onto the 7-tuple you formalized for Book 3. The formal definition *is* the base class — you've just been expressing it informally in kgraph rather than as an explicit inheritable structure.
+This is a really clean insight, and it maps directly onto the 7-tuple you formalized for Book 3. The formal definition *is* the base class -- you've just been expressing it informally in kgraph rather than as an explicit inheritable structure.
 
 Let me sketch what I think the layering looks like:
 
@@ -56,18 +56,18 @@ Let me sketch what I think the layering looks like:
 
 ```
 TypedGraph (base layer)
-  — node/edge value objects with typed IDs
-  — GraphSchema: frozen declaration of (T_V, T_E, Φ, valid_predicates)
-  — validation: does this edge type make sense between these node types?
-  — traversal mechanics: BFS, neighbor lookup, reachability
-  — ingestion pipeline scaffold: fetch → extract → ingest stages
+  -- node/edge value objects with typed IDs
+  -- GraphSchema: frozen declaration of (T_V, T_E, Φ, valid_predicates)
+  -- validation: does this edge type make sense between these node types?
+  -- traversal mechanics: BFS, neighbor lookup, reachability
+  -- ingestion pipeline scaffold: fetch → extract → ingest stages
 
 HolmesSchema(TypedGraph base)           MedlitSchema(TypedGraph base)
-  — HolmesNodeType(StrEnum)               — MedlitNodeType(StrEnum)
-  — HolmesEdgeType(StrEnum)               — MedlitEdgeType(StrEnum)
-  — HOLMES_SCHEMA = GraphSchema(...)      — MEDLIT_SCHEMA = GraphSchema(...)
-  — HolmesNode(TypedNode)                 — entity authority routing
-  — provisional ID mechanics              — UMLS/HGNC/RxNorm lookup
+  -- HolmesNodeType(StrEnum)               -- MedlitNodeType(StrEnum)
+  -- HolmesEdgeType(StrEnum)               -- MedlitEdgeType(StrEnum)
+  -- HOLMES_SCHEMA = GraphSchema(...)      -- MEDLIT_SCHEMA = GraphSchema(...)
+  -- HolmesNode(TypedNode)                 -- entity authority routing
+  -- provisional ID mechanics              -- UMLS/HGNC/RxNorm lookup
 ```
 
 The frozen Pydantic rule fits cleanly here: nodes and edges are frozen value objects; the *graph container* is a mutable dict-of-dicts (or Postgres rows), which is appropriate since it's infrastructure, not domain logic.
@@ -149,9 +149,9 @@ The cleanest path forward is probably: define `HOLMES_SCHEMA` as above, then wri
 
 **The Book 3 angle**
 
-This is actually a better worked example for the book than the abstract 7-tuple — you can *show* the 7-tuple as a Pydantic class and then demonstrate that `HOLMES_SCHEMA` is a literal instance of it. The formal definition and the running code are the same thing. That's a much stronger pedagogical move than keeping them separate.
+This is actually a better worked example for the book than the abstract 7-tuple -- you can *show* the 7-tuple as a Pydantic class and then demonstrate that `HOLMES_SCHEMA` is a literal instance of it. The formal definition and the running code are the same thing. That's a much stronger pedagogical move than keeping them separate.
 
-Worth being explicit about one thing: `GraphSchema` is the *schema layer*, `TypedNode`/`TypedEdge` instances are the *instance layer* — which directly maps to your earlier decision that traits belong in the schema, not the instance. The `trait_keys` frozenset in `GraphSchema` declares what traits are *legal*; trait *values* live on individual nodes.
+Worth being explicit about one thing: `GraphSchema` is the *schema layer*, `TypedNode`/`TypedEdge` instances are the *instance layer* -- which directly maps to your earlier decision that traits belong in the schema, not the instance. The `trait_keys` frozenset in `GraphSchema` declares what traits are *legal*; trait *values* live on individual nodes.
 
 Is the immediate practical question "how do I retrofit the Holmes pipeline to use this structure without blowing up what I've already written"?
 
@@ -187,26 +187,26 @@ The key considerations:
 1. **Does Python's StrEnum support multi-level inheritance well?** Actually, `StrEnum` is tricky with inheritance. You can't add members to an existing enum subclass. So `class HolmesNodeType(NodeType)` would fail if `NodeType` already has members. But if `NodeType` has *no* members (it's just a marker/base), then subclassing works fine.
 
 
-2. **What a base `NodeType(StrEnum)` with no members gives you:** You get better type annotations—declaring `node_type: NodeType` lets you accept any domain's node type, mypy can verify you're passing actual `NodeType` subclasses rather than arbitrary strings, and you can write functions that accept `type[NodeType]` to work with any node type enum. Without this base class, if `TypedNode` just declares `node_type: str`, you lose all that type safety.
+2. **What a base `NodeType(StrEnum)` with no members gives you:** You get better type annotations--declaring `node_type: NodeType` lets you accept any domain's node type, mypy can verify you're passing actual `NodeType` subclasses rather than arbitrary strings, and you can write functions that accept `type[NodeType]` to work with any node type enum. Without this base class, if `TypedNode` just declares `node_type: str`, you lose all that type safety.
 
 3. **The isinstance angle:** You can check `isinstance(HolmesNodeType.CHARACTER, NodeType)` and it returns True, which is useful for runtime validation.
 
-4. **A stronger alternative:** You could make `TypedNode` generic over the node type itself—something like `TypedNode[NT: NodeType]` with `node_type: NT`—which gives you even tighter typing guarantees.
+4. **A stronger alternative:** You could make `TypedNode` generic over the node type itself--something like `TypedNode[NT: NodeType]` with `node_type: NT`--which gives you even tighter typing guarantees.
 
 5. **Why the inheritance works:** Python's enum rules normally prevent subclassing an enum with members, but an empty base enum like `NodeType` can be freely subclassed, so `HolmesNodeType` can inherit from it and add its own members without issues.
 
-The real payoff is using these base enums as type markers. You'd define `NodeType` and `EdgeType` as empty StrEnum bases, then have `TypedNode` and `TypedEdge` accept those base types in their fields. For `GraphSchema`, instead of storing frozensets of strings, you'd store the actual enum class itself—`node_type_enum: type[NodeType]`—which is cleaner and more type-safe.
+The real payoff is using these base enums as type markers. You'd define `NodeType` and `EdgeType` as empty StrEnum bases, then have `TypedNode` and `TypedEdge` accept those base types in their fields. For `GraphSchema`, instead of storing frozensets of strings, you'd store the actual enum class itself--`node_type_enum: type[NodeType]`--which is cleaner and more type-safe.
 
 I could go full generic with TypeVars bound to these bases, but that's probably overcomplicating things. The simpler marker enum pattern gives you isinstance checks, mypy type narrowing, and clear intent without the extra complexity. Plus, `GraphSchema` storing the enum class directly means you get the frozenset of valid values for free by just iterating the enum.
 ````
 
 </details>
   
-Yes, and it buys you more than just organization. The key property of Python enums is that **you can only subclass an enum if the parent has no members** — which means an empty base enum is exactly the right pattern for a marker type:
+Yes, and it buys you more than just organization. The key property of Python enums is that **you can only subclass an enum if the parent has no members** -- which means an empty base enum is exactly the right pattern for a marker type:
 
 ```python
 class NodeType(StrEnum):
-    """Abstract base — no members. Domain schemas subclass this."""
+    """Abstract base -- no members. Domain schemas subclass this."""
     pass
 
 class EdgeType(StrEnum):
@@ -224,7 +224,7 @@ What this gets you:
 **`isinstance` works as you'd expect:**
 ```python
 isinstance(HolmesNodeType.CHARACTER, NodeType)  # True
-isinstance(HolmesNodeType.CHARACTER, EdgeType)  # False — caught at runtime
+isinstance(HolmesNodeType.CHARACTER, EdgeType)  # False -- caught at runtime
 ```
 
 **mypy can check the distinction between node and edge types:**
@@ -236,7 +236,7 @@ class TypedEdge(BaseModel, frozen=True):
     edge_type: EdgeType   # symmetric
 ```
 
-Without the base, both fields are typed `StrEnum` and mypy can't distinguish them — you could accidentally pass a `HolmesEdgeType` where a node type is expected.
+Without the base, both fields are typed `StrEnum` and mypy can't distinguish them -- you could accidentally pass a `HolmesEdgeType` where a node type is expected.
 
 **`GraphSchema` can store the enum class itself, not a frozenset of strings:**
 ```python
@@ -245,7 +245,7 @@ class GraphSchema(BaseModel, frozen=True):
     edge_type_enum: type[EdgeType]
     ...
     
-    # valid values are just the enum members — no separate frozenset needed
+    # valid values are just the enum members -- no separate frozenset needed
     @property
     def node_types(self) -> frozenset[str]:
         return frozenset(self.node_type_enum)
@@ -253,7 +253,7 @@ class GraphSchema(BaseModel, frozen=True):
 
 Storing `type[NodeType]` is richer than storing `frozenset[str]` because you can do things like `self.node_type_enum(some_string)` for validation with a proper `ValueError`, and the enum class itself carries documentation, iteration order, and membership testing.
 
-The one thing to be aware of: mypy's handling of `type[SomeEnum]` as a field in a Pydantic model can get fussy — you may need `arbitrary_types_allowed = True` in the model config, since enum metaclasses aren't standard Pydantic types. Worth a quick check before committing to that field signature.
+The one thing to be aware of: mypy's handling of `type[SomeEnum]` as a field in a Pydantic model can get fussy -- you may need `arbitrary_types_allowed = True` in the model config, since enum metaclasses aren't standard Pydantic types. Worth a quick check before committing to that field signature.
 
 
 
@@ -272,25 +272,25 @@ I would expect that we'll want to add fields in some cases. Like medical predica
 ````plaintext
 Thought process: Architected domain-specific edge subclasses for enriched graph metadata.
 
-Will is asking about enriching edges (predicates) with domain-specific fields — like provenance, evidence strength, citation info for medical graphs. This is a classic challenge in typed graph design: the edge type isn't just a label, it's a typed structure with its own fields.
+Will is asking about enriching edges (predicates) with domain-specific fields -- like provenance, evidence strength, citation info for medical graphs. This is a classic challenge in typed graph design: the edge type isn't just a label, it's a typed structure with its own fields.
 
 The approach that fits cleanly with Pydantic + frozen models:
 
 **Option 1: Traits as a frozenset of key-value pairs** (what was sketched before)
 - Generic but loses type safety on the values
-- `traits: frozenset[tuple[str, Any]]` — mypy can't help you
+- `traits: frozenset[tuple[str, Any]]` -- mypy can't help you
   
-**Option 2: Domain-specific edge subclasses** — I'm defining subclasses like MedlitEdge that inherit from a base TypedEdge and add their own typed fields for provenance, evidence level, and citation info. This gives full mypy and Pydantic validation, plus discriminated unions handle mixed edge types cleanly.
+**Option 2: Domain-specific edge subclasses** -- I'm defining subclasses like MedlitEdge that inherit from a base TypedEdge and add their own typed fields for provenance, evidence level, and citation info. This gives full mypy and Pydantic validation, plus discriminated unions handle mixed edge types cleanly.
 
-**Option 3: Generic TypedEdge with a typed payload** — I'm using a generic parameter to wrap domain-specific data inside the edge, keeping the base structure flexible while maintaining type safety on the payload.
+**Option 3: Generic TypedEdge with a typed payload** -- I'm using a generic parameter to wrap domain-specific data inside the edge, keeping the base structure flexible while maintaining type safety on the payload.
 
 Option 2 feels like the right call here.
 
-Now I'm thinking through what medical predicates actually need — things like evidence strength, source citations, confidence scores, directionality, contextual details like tissue or cell type, and whether the assertion is direct or inferred. I'm sketching out an EvidenceLevel enum with categories like strong, moderate, weak, and inferred, then building out a MedlitEdge class with fields for PMID, evidence level, confidence score, and assertion type.
+Now I'm thinking through what medical predicates actually need -- things like evidence strength, source citations, confidence scores, directionality, contextual details like tissue or cell type, and whether the assertion is direct or inferred. I'm sketching out an EvidenceLevel enum with categories like strong, moderate, weak, and inferred, then building out a MedlitEdge class with fields for PMID, evidence level, confidence score, and assertion type.
 
 Defining edge classes...
 
-The pattern is becoming clearer — the base TypedEdge handles structural concerns like IDs and edge types, while domain-specific edges layer on their semantic metadata. A Holmes story edge would just need a story reference and sentence index, which is much simpler than the medical case. The schema itself could store a reference to the appropriate edge class so the ingestion pipeline knows which class to instantiate. The same approach works for nodes too — a MedlitNode would carry mesh IDs and UMLS identifiers.
+The pattern is becoming clearer -- the base TypedEdge handles structural concerns like IDs and edge types, while domain-specific edges layer on their semantic metadata. A Holmes story edge would just need a story reference and sentence index, which is much simpler than the medical case. The schema itself could store a reference to the appropriate edge class so the ingestion pipeline knows which class to instantiate. The same approach works for nodes too -- a MedlitNode would carry mesh IDs and UMLS identifiers.
 ````
 
 </details>
@@ -337,7 +337,7 @@ class HolmesEdge(TypedEdge):
     provisional: bool = False
 ```
 
-Same pattern applies to nodes — `MedlitNode` would carry `umls_cui`, `mesh_id`, `hgnc_id` depending on entity type; `HolmesNode` carries `canonical_name`, `aliases`, `first_appearance`.
+Same pattern applies to nodes -- `MedlitNode` would carry `umls_cui`, `mesh_id`, `hgnc_id` depending on entity type; `HolmesNode` carries `canonical_name`, `aliases`, `first_appearance`.
 
 The `GraphSchema` then naturally stores the concrete classes, not just the enums:
 
@@ -384,9 +384,9 @@ Key observations:
 
 4. **`05_mention_store.py`** - Purely procedural, no types at all. Mentions are dicts throughout.
 
-5. **No shared types module** - Each script is standalone with data flowing as JSONL between them, and there aren't any Pydantic models for entities either—they're just dicts written to JSONL files.
+5. **No shared types module** - Each script is standalone with data flowing as JSONL between them, and there aren't any Pydantic models for entities either--they're just dicts written to JSONL files.
 
-The pipeline is missing the formal type system from the typed graph base: no `TypedNode` or entity models, no enums for node and edge types, and the validation logic in `09_validate.py` is manually reimplementing what `GraphSchema.allows()` would handle. The identity and entity metadata scattered across `06_identity.py` should be consolidated into a shared schema definition. The good news is the pipeline logic itself is solid and well-structured—it just needs the data model formalized into shared Pydantic types.
+The pipeline is missing the formal type system from the typed graph base: no `TypedNode` or entity models, no enums for node and edge types, and the validation logic in `09_validate.py` is manually reimplementing what `GraphSchema.allows()` would handle. The identity and entity metadata scattered across `06_identity.py` should be consolidated into a shared schema definition. The good news is the pipeline logic itself is solid and well-structured--it just needs the data model formalized into shared Pydantic types.
 
 I'd create a dedicated types module with `HolmesNodeType` and `HolmesEdgeType` enums, proper `Mention` and `Entity` models, and a `HOLMES_SCHEMA` that incorporates the validation rules currently hardcoded in `09_validate.py`. The set-based domain/range pattern in that validation dict is actually more flexible than enumerating all valid (source, edge, target) triples, so it's worth keeping that approach when formalizing the schema.
 ````
@@ -396,21 +396,21 @@ I'd create a dedicated types module with `HolmesNodeType` and `HolmesEdgeType` e
 Good picture now. Here's what I see:
 
 **What's already solid**
-- `RelationshipCandidate` in `08` is well-designed — frozen Pydantic, field validators, model validators, the works. It's essentially already a `TypedEdge` in all but name and lineage.
+- `RelationshipCandidate` in `08` is well-designed -- frozen Pydantic, field validators, model validators, the works. It's essentially already a `TypedEdge` in all but name and lineage.
 - `llm_json.py` is clean and reusable as-is.
 - The pipeline stage separation is good.
 
 **What's missing relative to the base class design**
 
-The biggest gap is that there are no shared types — every script operates on raw dicts flowing through JSONL. Specifically:
+The biggest gap is that there are no shared types -- every script operates on raw dicts flowing through JSONL. Specifically:
 
 - **No `Entity` model.** In `06_identity.py`, entities are assembled as dicts from `ENTITY_META` and written to JSONL. A `HolmesNode(TypedNode)` with `canonical_id`, `name`, `node_type`, `wiki` as proper fields would replace all that.
 
-- **The schema is split across two files.** `IDENTITY_MAP`/`TYPE_PREFIX` in `06` and the `SCHEMA` dict in `09` are together expressing what a single `HOLMES_SCHEMA = GraphSchema(...)` would contain. Right now they can drift out of sync — a new predicate added in `08` but not in `09`'s SCHEMA, for instance.
+- **The schema is split across two files.** `IDENTITY_MAP`/`TYPE_PREFIX` in `06` and the `SCHEMA` dict in `09` are together expressing what a single `HOLMES_SCHEMA = GraphSchema(...)` would contain. Right now they can drift out of sync -- a new predicate added in `08` but not in `09`'s SCHEMA, for instance.
 
-- **`SCHEMA` in `09` uses a domain/range-sets-per-predicate structure** rather than a frozenset of triples. That's actually a fine alternative encoding — more compact when a predicate has many valid src/tgt types. Worth deciding which form goes into `GraphSchema`.
+- **`SCHEMA` in `09` uses a domain/range-sets-per-predicate structure** rather than a frozenset of triples. That's actually a fine alternative encoding -- more compact when a predicate has many valid src/tgt types. Worth deciding which form goes into `GraphSchema`.
 
-- **`RelationshipCandidate` isn't connected to the schema.** It validates predicate names against `KNOWN_PREDICATES`, but not domain/range — that check lives separately in `09_validate.py`. If both lived in a `HolmesEdge` that knew about `HOLMES_SCHEMA`, you'd get full validation in one place at parse time.
+- **`RelationshipCandidate` isn't connected to the schema.** It validates predicate names against `KNOWN_PREDICATES`, but not domain/range -- that check lives separately in `09_validate.py`. If both lived in a `HolmesEdge` that knew about `HOLMES_SCHEMA`, you'd get full validation in one place at parse time.
 
 **The concrete fix**
 
@@ -462,9 +462,9 @@ HOLMES_SCHEMA = GraphSchema(
 )
 ```
 
-Then `RelationshipCandidate` imports `HOLMES_SCHEMA` and its `predicate_must_be_known` validator becomes `HOLMES_SCHEMA.allows(subject_prefix, predicate, object_prefix)`. The `SCHEMA` dict in `09_validate.py` goes away entirely — it's just `HOLMES_SCHEMA.valid_predicates`. And `06_identity.py`'s `TYPE_PREFIX` dict is replaced by `HolmesNodeType`.
+Then `RelationshipCandidate` imports `HOLMES_SCHEMA` and its `predicate_must_be_known` validator becomes `HOLMES_SCHEMA.allows(subject_prefix, predicate, object_prefix)`. The `SCHEMA` dict in `09_validate.py` goes away entirely -- it's just `HOLMES_SCHEMA.valid_predicates`. And `06_identity.py`'s `TYPE_PREFIX` dict is replaced by `HolmesNodeType`.
 
-The pipeline scripts themselves barely change — they just import from `schema.py` instead of carrying their own type knowledge.
+The pipeline scripts themselves barely change -- they just import from `schema.py` instead of carrying their own type knowledge.
 
 
 
@@ -534,7 +534,7 @@ Let me map what exists to what sherlock needs:
 **The hierarchy is already there**
 
 ```
-kgschema (base layer — already exists)
+kgschema (base layer -- already exists)
   BaseEntity (ABC + frozen Pydantic, get_entity_type() abstract)
   BaseRelationship (ABC + frozen Pydantic, get_edge_type() abstract)
   DomainSchema (ABC: entity_types, relationship_types, predicate_constraints, validate_*)
@@ -542,12 +542,12 @@ kgschema (base layer — already exists)
   EntityStorageInterface / RelationshipStorageInterface (ABCs)
   Evidence, Provenance, EntityStatus, PromotionConfig
 
-medlit_schema (extends kgschema — already exists)
+medlit_schema (extends kgschema -- already exists)
   Disease(BaseEntity), Drug(BaseEntity), Gene(BaseEntity), ...
   Treats(BaseRelationship), Causes(BaseRelationship), ...
   MedlitDomain(DomainSchema)
 
-sherlock (should extend kgschema — currently doesn't)
+sherlock (should extend kgschema -- currently doesn't)
   06_identity.py ≈ a static IdentityServer
   09_validate.py SCHEMA dict ≈ predicate_constraints
   RelationshipCandidate ≈ BaseRelationship (but orphaned)
@@ -586,7 +586,7 @@ class HolmesDomain(DomainSchema):
         }
 ```
 
-The `09_validate.py` script then becomes nearly trivial — it just calls `domain.validate_relationship(candidate)`.
+The `09_validate.py` script then becomes nearly trivial -- it just calls `domain.validate_relationship(candidate)`.
 
 ---
 
@@ -594,7 +594,7 @@ The `09_validate.py` script then becomes nearly trivial — it just calls `domai
 
 For Holmes you have two reasonable choices that mirror the existing `medlit/` duality:
 
-**Pattern A** (like `medlit/medlit/entities.py`) — one class per type, all extra fields go in `metadata`:
+**Pattern A** (like `medlit/medlit/entities.py`) -- one class per type, all extra fields go in `metadata`:
 ```python
 class HolmesCharacter(BaseEntity):
     def get_entity_type(self) -> str:
@@ -602,7 +602,7 @@ class HolmesCharacter(BaseEntity):
 ```
 Simple, fast, metadata in the `dict`.
 
-**Pattern B** (like `medlit/medlit_schema/entity.py`) — typed fields per class:
+**Pattern B** (like `medlit/medlit_schema/entity.py`) -- typed fields per class:
 ```python
 class HolmesCharacter(BaseEntity):
     wiki: str | None = None
@@ -613,23 +613,23 @@ class HolmesCharacter(BaseEntity):
 ```
 More verbose, but mypy helps and the fields are self-documenting.
 
-For the current Holmes work, Pattern A is probably the right call — you're still figuring out what fields each entity type needs. Pattern B is appropriate once the schema is stable, which medlit is.
+For the current Holmes work, Pattern A is probably the right call -- you're still figuring out what fields each entity type needs. Pattern B is appropriate once the schema is stable, which medlit is.
 
 ---
 
 **The `NodeType`/`EdgeType` StrEnum question**
 
-kgschema doesn't use them — type identity flows through `get_entity_type()` returning a string, and `predicate_constraints` using `set[str]`. That's intentionally loose to keep the base domain-agnostic.
+kgschema doesn't use them -- type identity flows through `get_entity_type()` returning a string, and `predicate_constraints` using `set[str]`. That's intentionally loose to keep the base domain-agnostic.
 
-The StrEnum approach I sketched earlier would add a layer of mypy safety at the cost of requiring every domain to define enums. Worth adding to kgschema, but it's an enhancement, not a prerequisite — you could add `node_type_enum: type[NodeType] | None = None` as an optional field on `DomainSchema` and leave existing domains unaffected.
+The StrEnum approach I sketched earlier would add a layer of mypy safety at the cost of requiring every domain to define enums. Worth adding to kgschema, but it's an enhancement, not a prerequisite -- you could add `node_type_enum: type[NodeType] | None = None` as an optional field on `DomainSchema` and leave existing domains unaffected.
 
 ---
 
 **The immediate concrete gap**
 
-The sherlock `06_identity.py` has `IDENTITY_MAP` and `ENTITY_META` but there's no `IdentityServer` implementation. The simplest path is a `StaticHolmesIdentityServer(IdentityServer)` that wraps those two dicts — essentially formalizing what the script already does. No Postgres required for Holmes; a dict-backed implementation is fine for a single-story corpus.
+The sherlock `06_identity.py` has `IDENTITY_MAP` and `ENTITY_META` but there's no `IdentityServer` implementation. The simplest path is a `StaticHolmesIdentityServer(IdentityServer)` that wraps those two dicts -- essentially formalizing what the script already does. No Postgres required for Holmes; a dict-backed implementation is fine for a single-story corpus.
 
-The biggest win from connecting to kgschema is that the pipeline stage outputs — currently raw dicts in JSONL — become proper `BaseEntity` and `BaseRelationship` instances that the kgserver's storage layer already knows how to handle.
+The biggest win from connecting to kgschema is that the pipeline stage outputs -- currently raw dicts in JSONL -- become proper `BaseEntity` and `BaseRelationship` instances that the kgserver's storage layer already knows how to handle.
 
 
 
@@ -648,18 +648,18 @@ So I'll continue working on the Python version of this for the Sherlock stuff, b
 ````plaintext
 Thought process: Architected language-agnostic schema definition using YAML bindings.
 
-Will wants a language-agnostic specification of the typed graph — something that describes the concepts independently of Python/Pydantic, so the same ideas could be expressed in Rust, TypeScript, Scheme, or any other language. This connects to his Book 3 work on the formal definition.
+Will wants a language-agnostic specification of the typed graph -- something that describes the concepts independently of Python/Pydantic, so the same ideas could be expressed in Rust, TypeScript, Scheme, or any other language. This connects to his Book 3 work on the formal definition.
 
-The 7-tuple $(T_V, T_E, \Phi, V, E, \tau_V, \tau_E)$ is already language-agnostic. What he's asking for is a way to express the "typed pieces" — the node types, edge types, trait vocabulary, predicate constraints — in a form that isn't tied to Python.
+The 7-tuple $(T_V, T_E, \Phi, V, E, \tau_V, \tau_E)$ is already language-agnostic. What he's asking for is a way to express the "typed pieces" -- the node types, edge types, trait vocabulary, predicate constraints -- in a form that isn't tied to Python.
  
 I need a schema description language or IDL to express this. Something like Protocol Buffers or GraphQL schema, but tailored to capture node type vocabularies, edge type vocabularies, trait definitions, and predicate constraints in a way that's independent of any particular programming language.
 
 Looking at the existing Python implementation in kgschema, I can see the `EntitySpec` and `PredicateSpec` classes define things like descriptions, type constraints, and metadata. A language-agnostic version would express these same concepts in YAML or TOML format instead of Python code.
 
-Defining a schema format... I'm seeing how each language binding—Python, Rust, TypeScript—would consume this schema definition to generate their own type representations, and how the MCP server exposes it all through `describe_schema` so agents know what's available. The core pattern is keeping the schema separate from the language-specific code generation and the actual instance data. that consumes the spec. Let me think about what I want to tell Will.
+Defining a schema format... I'm seeing how each language binding--Python, Rust, TypeScript--would consume this schema definition to generate their own type representations, and how the MCP server exposes it all through `describe_schema` so agents know what's available. The core pattern is keeping the schema separate from the language-specific code generation and the actual instance data. that consumes the spec. Let me think about what I want to tell Will.
 
 Key points:
-1. The language-agnostic core is a schema document — name/type/predicate vocabulary + trait vocabulary + constraints
+1. The language-agnostic core is a schema document -- name/type/predicate vocabulary + trait vocabulary + constraints
 2. YAML/TOML is the natural format (human-writable, machine-readable)
 3. Each language "binding" is a code generator or loader from that schema
 4. The 7-tuple maps cleanly: $T_V$ = node_types section, $T_E$ = edge_types section, $\Phi$ = traits section
@@ -672,12 +672,12 @@ Now I'm deciding between runtime loading versus code generation. For the Pi demo
 
 </details>
 
-Yes, exactly. You're describing a **schema definition layer** that sits above any particular language — the typed graph's vocabulary expressed in a form that can be compiled or loaded into Python, Rust, TypeScript, or whatever else you target. The 7-tuple *is* this, but you want it in a concrete notation.
+Yes, exactly. You're describing a **schema definition layer** that sits above any particular language -- the typed graph's vocabulary expressed in a form that can be compiled or loaded into Python, Rust, TypeScript, or whatever else you target. The 7-tuple *is* this, but you want it in a concrete notation.
 
-The natural form is a schema document (YAML or TOML), with each language having a **binding** — either a runtime loader or a code generator. Here's what that looks like for Holmes:
+The natural form is a schema document (YAML or TOML), with each language having a **binding** -- either a runtime loader or a code generator. Here's what that looks like for Holmes:
 
 ```yaml
-# holmes_schema.yaml  — language-agnostic source of truth
+# holmes_schema.yaml  -- language-agnostic source of truth
 
 schema:
   name: holmes
@@ -727,7 +727,7 @@ edge_types:
     subject_types: [person]
     object_types:  [person, organisation]
 
-# Trait groups — sets of properties that can appear on nodes or edges
+# Trait groups -- sets of properties that can appear on nodes or edges
 # Each language binding decides how to represent these
 trait_groups:
   temporal:
@@ -757,15 +757,15 @@ node_traits:
 
 The binding is the adapter between the schema document and the language's type system.
 
-*Python binding* — runtime loader that produces a `DomainSchema` instance:
+*Python binding* -- runtime loader that produces a `DomainSchema` instance:
 ```python
 schema = TypedGraphSchema.from_yaml("holmes_schema.yaml")
 domain = schema.to_domain()   # returns HolmesDomain(DomainSchema)
 ```
 
-Or a code generator that emits the Python classes we've been sketching — `HolmesNodeType`, `HolmesEdgeType`, `HolmesDomain` — so the types are available to mypy at edit time rather than only at runtime.
+Or a code generator that emits the Python classes we've been sketching -- `HolmesNodeType`, `HolmesEdgeType`, `HolmesDomain` -- so the types are available to mypy at edit time rather than only at runtime.
 
-*Rust binding* — for the Pi BFS demo, a build-time code generator (or a `build.rs` step) that emits:
+*Rust binding* -- for the Pi BFS demo, a build-time code generator (or a `build.rs` step) that emits:
 ```rust
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeType { Person, Location, Object, Document, Disguise, Organisation }
@@ -776,13 +776,13 @@ pub enum EdgeType { LocatedAt, KnowsAt, Possesses, DisguisedAs, Authored, Contai
 pub fn allows(subj: NodeType, edge: EdgeType, obj: NodeType) -> bool { ... }
 ```
 
-*TypeScript/MCP binding* — the `describe_schema` tool response is just the YAML parsed to JSON. An LLM agent asking "what types exist?" gets the node_types and edge_types sections directly.
+*TypeScript/MCP binding* -- the `describe_schema` tool response is just the YAML parsed to JSON. An LLM agent asking "what types exist?" gets the node_types and edge_types sections directly.
 
 ---
 
 **The key design decision**
 
-The schema document only contains the **vocabulary and structural constraints** — the 7-tuple's $T_V$, $T_E$, $\Phi$, and the valid-predicate function. It does *not* contain:
+The schema document only contains the **vocabulary and structural constraints** -- the 7-tuple's $T_V$, $T_E$, $\Phi$, and the valid-predicate function. It does *not* contain:
 
 - Identity resolution logic (that's domain code)
 - Extraction prompts (those reference the schema but aren't part of it)
@@ -793,7 +793,7 @@ Those things need the language, because they have behavior. The schema document 
 
 This also means `holmes_schema.yaml` is what you'd version alongside the corpus, hand to a manufacturing partner for the industrial schema, and expose via the MCP `describe_schema` tool. The Python/Rust/TypeScript code is derived from it, not the other way around.
 
-The precedent for this pattern is Protocol Buffers, Thrift, and GraphQL SDL — all of which are "write the schema once, generate bindings for each language." The difference here is that your schema is a *graph vocabulary* rather than a message format, so the constraint system (subject_types/object_types) is the novel part.
+The precedent for this pattern is Protocol Buffers, Thrift, and GraphQL SDL -- all of which are "write the schema once, generate bindings for each language." The difference here is that your schema is a *graph vocabulary* rather than a message format, so the constraint system (subject_types/object_types) is the novel part.
 
 
 
@@ -827,7 +827,7 @@ Key things worth noting:
 - This schema document IS the formal definition from Book 3, made concrete
 - It's the `describe_schema` MCP tool response
 - It's the input to the Rust code generator for the Pi demo
-- `kgschema/kgschema/spec.py` already partially captures this but in Python — this generalizes it
+- `kgschema/kgschema/spec.py` already partially captures this but in Python -- this generalizes it
 
 I should keep it short and let him direct.
 ````
@@ -838,15 +838,15 @@ Good. And notice what just crystallized: this schema document *is* Book 3's form
 
 A few implications worth naming while the thought is fresh:
 
-**It unifies things that are currently scattered.** Right now the Holmes schema lives in three places — `IDENTITY_MAP` type prefixes in `06`, the `SCHEMA` dict in `09`, and the `ENTITY_TYPES` list in `04`. The YAML is the single source of truth all three derive from.
+**It unifies things that are currently scattered.** Right now the Holmes schema lives in three places -- `IDENTITY_MAP` type prefixes in `06`, the `SCHEMA` dict in `09`, and the `ENTITY_TYPES` list in `04`. The YAML is the single source of truth all three derive from.
 
-**It's the `describe_schema` MCP response.** The tool doesn't need to introspect Python classes — it just serves the parsed YAML. An LLM agent gets the full vocabulary in one call.
+**It's the `describe_schema` MCP response.** The tool doesn't need to introspect Python classes -- it just serves the parsed YAML. An LLM agent gets the full vocabulary in one call.
 
-**It's the input to the Pi BFS generator.** The Rust code generator reads `holmes_schema.yaml`, emits the enums and the `allows()` predicate table. No LLM, no cloud, no Python runtime on the Pi — just compiled constraints and graph traversal.
+**It's the input to the Pi BFS generator.** The Rust code generator reads `holmes_schema.yaml`, emits the enums and the `allows()` predicate table. No LLM, no cloud, no Python runtime on the Pi -- just compiled constraints and graph traversal.
 
 **It's what you hand a manufacturing partner.** "Here's the schema format. Define your industrial control schema in this notation, and the open-source toolchain works out of the box."
 
-The thing you probably want to nail down next is the trait system — specifically whether traits are properties on edges only, or on nodes too, and whether the type system for trait values needs to be richer than `{type: float}` / `{type: enum, values: [...]}`. That's the part that'll vary most between domains.
+The thing you probably want to nail down next is the trait system -- specifically whether traits are properties on edges only, or on nodes too, and whether the type system for trait values needs to be richer than `{type: float}` / `{type: enum, values: [...]}`. That's the part that'll vary most between domains.
 
 Where do you want to take it from here?
 
@@ -871,9 +871,9 @@ Will is thinking about restructuring Book 3's content flow. Currently the formal
 
 This is a strong pedagogical insight. Let me think about the flow:
 
-1. Formal definition (7-tuple) — establishes what a typed graph IS
-2. Schema definition language (YAML) — makes it concrete and language-agnostic
-3. Python implementation — one specific realization
+1. Formal definition (7-tuple) -- establishes what a typed graph IS
+2. Schema definition language (YAML) -- makes it concrete and language-agnostic
+3. Python implementation -- one specific realization
    
 This follows the classic abstract-to-concrete-to-specific pattern, which is much more powerful than jumping straight to Python. It lets readers understand the reasoning behind the implementation choices, and makes the core concepts accessible to people working in other languages. So the formal definition should move from the appendix into the main chapters, probably right after the motivation section, followed by the schema language and then the Python code.
 ````
@@ -886,22 +886,22 @@ That's a strong structural instinct, and I think it's right. The flow you're des
 
 which is the classic abstract-to-concrete progression. Each layer justifies the next: the 7-tuple tells you *what* a typed graph is, the schema language makes it *writable*, and Python shows you *one way to run it*. A reader who works in Rust or TypeScript can engage fully with the first two layers and understand exactly what they'd need to implement.
 
-The current structure has the formal definition in an appendix, which buries the thesis. If the book is called *The Typed Graph*, the formal definition should be near the front — not as a barrier, but as a compact statement of what the rest of the book unpacks. Something like:
+The current structure has the formal definition in an appendix, which buries the thesis. If the book is called *The Typed Graph*, the formal definition should be near the front -- not as a barrier, but as a compact statement of what the rest of the book unpacks. Something like:
 
 ```
-Chapter I   — Why typing matters in graphs (motivation, the Holmes example)
-Chapter II  — The formal definition (7-tuple, each component named and motivated)
-Chapter III — The schema definition language (YAML, the notation, Holmes schema in full)
-Chapter IV  — A Python binding (kgschema, BaseEntity, DomainSchema — now obviously derived)
-Chapter V+  — Reasoning, traversal, identity, trust, ...
-Appendices  — Formal proofs, edge cases, implementation notes
+Chapter I   -- Why typing matters in graphs (motivation, the Holmes example)
+Chapter II  -- The formal definition (7-tuple, each component named and motivated)
+Chapter III -- The schema definition language (YAML, the notation, Holmes schema in full)
+Chapter IV  -- A Python binding (kgschema, BaseEntity, DomainSchema -- now obviously derived)
+Chapter V+  -- Reasoning, traversal, identity, trust, ...
+Appendices  -- Formal proofs, edge cases, implementation notes
 ```
 
 The schema language chapter is new and earns its place precisely because it sits between the math and the code. Without it, the jump from 7-tuple to Pydantic classes feels arbitrary. With it, the reader sees that Python is just one materialization of something more general.
 
-It also makes the appendix lighter — the formal definition moves up, and what remains there is genuinely appendix-level material.
+It also makes the appendix lighter -- the formal definition moves up, and what remains there is genuinely appendix-level material.
 
-The one thing to watch: Chapter III needs a worked example, not just notation. Holmes is perfect for that — you can show the full `holmes_schema.yaml` and walk through each section as an instance of the 7-tuple components. The reader ends Chapter III having seen both the abstract schema language and a concrete schema, before any Python appears.
+The one thing to watch: Chapter III needs a worked example, not just notation. Holmes is perfect for that -- you can show the full `holmes_schema.yaml` and walk through each section as an instance of the 7-tuple components. The reader ends Chapter III having seen both the abstract schema language and a concrete schema, before any Python appears.
 
 
 
@@ -915,7 +915,7 @@ I like this outline a lot. One thing I want in chapter 1 is to portray this as a
 ## Response:
 5/19/2026, 12:32:16 AM
 
-That's a precise and important distinction. The claim isn't "typed graphs are *like* typed variables" — it's that they're the *same phenomenon at a different scale*.
+That's a precise and important distinction. The claim isn't "typed graphs are *like* typed variables" -- it's that they're the *same phenomenon at a different scale*.
 
 The argument runs something like this:
 
@@ -923,11 +923,11 @@ In a programming language, a type constrains what values a variable can hold and
 
 A typed graph is the same mechanism applied to a knowledge structure. `node_type: Person` rules out treating a location as an agent. `(Person, employed_by, Person | Organisation)` rules out asserting that a document employs a location. The predicate constraints are function signatures. The node types are variable types. The schema is the type system.
 
-What makes this *literal* rather than analogical is that both are instances of the same underlying idea: **a declared vocabulary of valid terms, plus rules about where each term may appear**. The implementation differs — one lives in a compiler, one lives in a schema validator — but the structure is identical. You could in principle express a graph schema as a type system and a type system as a graph schema.
+What makes this *literal* rather than analogical is that both are instances of the same underlying idea: **a declared vocabulary of valid terms, plus rules about where each term may appear**. The implementation differs -- one lives in a compiler, one lives in a schema validator -- but the structure is identical. You could in principle express a graph schema as a type system and a type system as a graph schema.
 
-The motivating observation for Chapter I might be the one you started this conversation with: your bug at work got simpler when you defined types. That's not a graph story — it's a pure programming story. And then the chapter turns: the same move, applied to relational knowledge rather than to variables, gives you typed graphs. The reader has already felt the win in a familiar context before the new concept appears.
+The motivating observation for Chapter I might be the one you started this conversation with: your bug at work got simpler when you defined types. That's not a graph story -- it's a pure programming story. And then the chapter turns: the same move, applied to relational knowledge rather than to variables, gives you typed graphs. The reader has already felt the win in a familiar context before the new concept appears.
 
-That also sets up the formal definition in Chapter II cleanly — you're not introducing an alien formalism, you're writing down precisely what a type system for a graph would have to contain.
+That also sets up the formal definition in Chapter II cleanly -- you're not introducing an alien formalism, you're writing down precisely what a type system for a graph would have to contain.
 
 
 
@@ -941,11 +941,11 @@ This also maps nicely onto the everyday expression of comparing apples to apples
 ## Response:
 5/19/2026, 12:36:11 AM
 
-Yes — and that's actually a deeper point than it first appears. The apples-to-apples intuition is doing real logical work, not just folksy wisdom. It's the same thing a physicist means when they say a equation must be *dimensionally consistent* — you can't add meters to seconds, not because of an arbitrary rule, but because the operation has no coherent meaning.
+Yes -- and that's actually a deeper point than it first appears. The apples-to-apples intuition is doing real logical work, not just folksy wisdom. It's the same thing a physicist means when they say a equation must be *dimensionally consistent* -- you can't add meters to seconds, not because of an arbitrary rule, but because the operation has no coherent meaning.
 
-Type systems are essentially dimension analysis made general. `float + float → float` is fine; `meters + seconds` is a type error. The compiler isn't being pedantic — it's telling you the operation you wrote down doesn't correspond to anything real.
+Type systems are essentially dimension analysis made general. `float + float → float` is fine; `meters + seconds` is a type error. The compiler isn't being pedantic -- it's telling you the operation you wrote down doesn't correspond to anything real.
 
-The graph schema does the same thing for relational claims. `(Drug, treats, Disease)` is dimensionally consistent. `(Location, treats, Author)` is a category error — not merely wrong in this instance, but *meaninglessly formed*. The predicate `treats` has a signature, and the types don't satisfy it.
+The graph schema does the same thing for relational claims. `(Drug, treats, Disease)` is dimensionally consistent. `(Location, treats, Author)` is a category error -- not merely wrong in this instance, but *meaninglessly formed*. The predicate `treats` has a signature, and the types don't satisfy it.
 
 What's nice about framing it this way in Chapter I is that it gives the reader three levels of the same phenomenon:
 
@@ -953,7 +953,7 @@ What's nice about framing it this way in Chapter I is that it gives the reader t
 - **scientific practice**: dimensional analysis, units must be consistent  
 - **formal systems**: type checking in programming languages
 
-And then typed graphs are the natural extension of that same principle into the domain of *declared relationships between named things*. Each level is making the same move — ruling out category errors by construction — just at a different level of formalization.
+And then typed graphs are the natural extension of that same principle into the domain of *declared relationships between named things*. Each level is making the same move -- ruling out category errors by construction -- just at a different level of formalization.
 
 That progression could actually structure the opening of Chapter I. Start with the everyday intuition, show that physics formalized it, show that programming languages formalized it further, and then ask: what does it look like when you apply it to a graph of knowledge? The formal definition in Chapter II then arrives as the answer to a question the reader is already holding.
 
@@ -968,13 +968,13 @@ Here are some notes I made on where I'd like to go with the book outline. (I thi
 
 ### Outline overview
 
-* Chapter I — Why typing matters in graphs (motivation, the Holmes example)
-* Chapter II — The formal definition (7-tuple, each component named and motivated)
-* Chapter III — The schema definition language (YAML, the notation, Holmes schema in full)
-* Chapter IV — A Python binding (kgschema, BaseEntity, DomainSchema — now obviously derived)
-* Chapter V — Medical literature (this is already built and working)
-* Chapter VI+ — Reasoning, traversal, identity, trust, ...
-* Appendices — Formal proofs, edge cases, implementation notes
+* Chapter I -- Why typing matters in graphs (motivation, the Holmes example)
+* Chapter II -- The formal definition (7-tuple, each component named and motivated)
+* Chapter III -- The schema definition language (YAML, the notation, Holmes schema in full)
+* Chapter IV -- A Python binding (kgschema, BaseEntity, DomainSchema -- now obviously derived)
+* Chapter V -- Medical literature (this is already built and working)
+* Chapter VI+ -- Reasoning, traversal, identity, trust, ...
+* Appendices -- Formal proofs, edge cases, implementation notes
 
 Chapter 1 starts out with why are we doing all this? And we start out with high stakes reasoning. Law, medicine, civil engineering. Things where making mistakes have a cost in terms of lives and livelihoods.
  
@@ -1036,17 +1036,17 @@ Key observations from his notes:
 
 6. **Practical concern**: He needs a working Sherlock graph before Chapter 3 can be fully written. Suggests branching kgraph and borrowing from medlit.
 
-7. **Terminology shift**: Using "signature" instead of "domain/range" aligns better with programming language theory and reads more naturally for programmers—something like `located_at(subject: Person | Object, object: Location)` is immediately clear. After the formal definition in Chapter 2, I should explore what the 7-tuple actually enables and what guarantees it provides.
+7. **Terminology shift**: Using "signature" instead of "domain/range" aligns better with programming language theory and reads more naturally for programmers--something like `located_at(subject: Person | Object, object: Location)` is immediately clear. After the formal definition in Chapter 2, I should explore what the 7-tuple actually enables and what guarantees it provides.
 
 8. **Worked example approach**: A small graph instance that demonstrates the definition in practice would be valuable, along with previewing how this connects to the schema language coming in Chapter 3. I don't think formal lemmas or theorems are necessary unless I'm making specific claims about completeness or decidability.
 
-9. **The Sherlock corpus strategy**: Branching kgraph and adapting the medlit pipeline is the pragmatic move—it's a proven extraction process that just needs a domain swap. The key insight is that the book focuses on the typed graph as a data structure and reasoning system, not the extraction mechanics themselves. The pipeline is just infrastructure; the schema and graph are what matter pedagogically.
+9. **The Sherlock corpus strategy**: Branching kgraph and adapting the medlit pipeline is the pragmatic move--it's a proven extraction process that just needs a domain swap. The key insight is that the book focuses on the typed graph as a data structure and reasoning system, not the extraction mechanics themselves. The pipeline is just infrastructure; the schema and graph are what matter pedagogically.
 
-10. **Chapter 1 structure**: The progression from RAG to Graph RAG to typed graphs is clean, though I should note that Graph RAG is now a Microsoft product term. The "no LLM required" angle is strategically important—the typed graph has value on its own, which the BFS traversal demo on Pi proves. That's worth emphasizing.
+10. **Chapter 1 structure**: The progression from RAG to Graph RAG to typed graphs is clean, though I should note that Graph RAG is now a Microsoft product term. The "no LLM required" angle is strategically important--the typed graph has value on its own, which the BFS traversal demo on Pi proves. That's worth emphasizing.
 
 Looking at the strong points: the high-stakes examples in law, medicine, and civil engineering immediately establish why this matters. The RAG progression works pedagogically. "Predicate as two-argument function with signature" is clearer terminology than domain/range. The informal-to-formal arc across chapters is solid.
 
-On the history of type systems section with Java, Haskell, and OCaml—I need to think through what that's really doing for the narrative.
+On the history of type systems section with Java, Haskell, and OCaml--I need to think through what that's really doing for the narrative.
 
 The key evolution is dynamic typing → static typing → dependent types and algebraic types, and the theorem-proving origins matter for establishing rigor. That's the real story, not cataloging every language.
 
@@ -1061,17 +1061,17 @@ On the practical side with Sherlock: branching kgraph makes sense, and the medli
 
 These notes are clear and the structure is strong. A few reactions worth considering:
 
-**The predicate-as-function terminology is a genuine improvement.** "Domain and range" comes from RDF/OWL and will make programmers think of database schemas or set theory. "Signature" is the right word — every programmer already knows what a function signature is. `located_at(subject: Person | Object, object: Location)` is immediately readable. It also makes the category error framing land harder: violating a predicate's signature is exactly like passing the wrong type to a function. Same concept, same word.
+**The predicate-as-function terminology is a genuine improvement.** "Domain and range" comes from RDF/OWL and will make programmers think of database schemas or set theory. "Signature" is the right word -- every programmer already knows what a function signature is. `located_at(subject: Person | Object, object: Location)` is immediately readable. It also makes the category error framing land harder: violating a predicate's signature is exactly like passing the wrong type to a function. Same concept, same word.
 
-**Chapter 2 after the formal definition.** I'd suggest one worked example rather than lemmas — take three or four triples from the Holmes schema, show each one as an instance of the 7-tuple components, and verify one that satisfies the definition and one that doesn't. That gives readers who are uncomfortable with the math something concrete to anchor to, without requiring theorems you don't actually need. The chapter can be short.
+**Chapter 2 after the formal definition.** I'd suggest one worked example rather than lemmas -- take three or four triples from the Holmes schema, show each one as an instance of the 7-tuple components, and verify one that satisfies the definition and one that doesn't. That gives readers who are uncomfortable with the math something concrete to anchor to, without requiring theorems you don't actually need. The chapter can be short.
 
-**The "no LLM required" point needs a clear home.** Right now it's in Chapter 1 alongside the motivation material, which is right, but it might get buried in the RAG discussion. It's worth considering whether it gets its own paragraph with some emphasis — maybe framed as: the typed graph is well-organized data optimized for BFS, and BFS doesn't care what put the data there. That's the Pi demo in one sentence. It's also the industrial control pitch: the graph is valuable regardless of how it was built or what queries it.
+**The "no LLM required" point needs a clear home.** Right now it's in Chapter 1 alongside the motivation material, which is right, but it might get buried in the RAG discussion. It's worth considering whether it gets its own paragraph with some emphasis -- maybe framed as: the typed graph is well-organized data optimized for BFS, and BFS doesn't care what put the data there. That's the Pi demo in one sentence. It's also the industrial control pitch: the graph is valuable regardless of how it was built or what queries it.
 
-**The history of type systems section.** The list you have is long — Java, Haskell, OCaml, Rust, algebraic types, C++ templates, R, NumPy. For an outline that's fine, but when writing you'll want to be selective. The through-line that serves Chapter 1's argument is: type systems started as tools for mathematical proof, got built into compilers to catch errors before runtime, and have progressively gotten more expressive. The theorem-proving origin is the important part — it establishes that rigor in type systems isn't pedantry, it's the whole point.
+**The history of type systems section.** The list you have is long -- Java, Haskell, OCaml, Rust, algebraic types, C++ templates, R, NumPy. For an outline that's fine, but when writing you'll want to be selective. The through-line that serves Chapter 1's argument is: type systems started as tools for mathematical proof, got built into compilers to catch errors before runtime, and have progressively gotten more expressive. The theorem-proving origin is the important part -- it establishes that rigor in type systems isn't pedantry, it's the whole point.
 
-**The Sherlock practical concern.** Your instinct is exactly right — branch kgraph, borrow the medlit pipeline, swap the domain spec. `HolmesDomain(DomainSchema)` is maybe 150 lines once you have the predicate constraints and entity types defined. A Scandal in Bohemia is the right first story: short, self-contained, five major characters, a handful of locations, the photograph as the central object. The graph visualization becomes your diagnostic — if Holmes and Irene Adler aren't connected through the photograph within two hops, something is wrong.
+**The Sherlock practical concern.** Your instinct is exactly right -- branch kgraph, borrow the medlit pipeline, swap the domain spec. `HolmesDomain(DomainSchema)` is maybe 150 lines once you have the predicate constraints and entity types defined. A Scandal in Bohemia is the right first story: short, self-contained, five major characters, a handful of locations, the photograph as the central object. The graph visualization becomes your diagnostic -- if Holmes and Irene Adler aren't connected through the photograph within two hops, something is wrong.
 
-**One structural note.** You mention the end result is JSONL files and it doesn't matter how the sausage was made. That's pedagogically freeing — Chapter 4 can show the Python binding without the reader needing to have run the pipeline. You can include a pre-built Holmes JSONL bundle in the repo and let readers explore it before they've built anything. That's also a good onramp for the non-Python readers who come for Chapters 1-3 and stay for the graph reasoning material.
+**One structural note.** You mention the end result is JSONL files and it doesn't matter how the sausage was made. That's pedagogically freeing -- Chapter 4 can show the Python binding without the reader needing to have run the pipeline. You can include a pre-built Holmes JSONL bundle in the repo and let readers explore it before they've built anything. That's also a good onramp for the non-Python readers who come for Chapters 1-3 and stay for the graph reasoning material.
 
 
 
@@ -1114,17 +1114,17 @@ From the earlier outline, good things to steal:
 - The bias/limits/responsibility chapter
 - "What This Makes Possible" closing
 
-Now I'm thinking about where to place the "no LLMs required / future-proof reasoning" point—it could work well in Chapter 1 as part of the motivation, or perhaps as a throughline that appears in the manifesto and gets reinforced when we discuss the schema language's independence from any particular AI system.
+Now I'm thinking about where to place the "no LLMs required / future-proof reasoning" point--it could work well in Chapter 1 as part of the motivation, or perhaps as a throughline that appears in the manifesto and gets reinforced when we discuss the schema language's independence from any particular AI system.
 
-The key insight is that this argument has two layers: the typed graph can be queried without LLMs using basic graph traversal, and the graph itself remains stable infrastructure regardless of how LLM technology evolves. That's the real future-proofing angle—the substrate outlasts the tools.
+The key insight is that this argument has two layers: the typed graph can be queried without LLMs using basic graph traversal, and the graph itself remains stable infrastructure regardless of how LLM technology evolves. That's the real future-proofing angle--the substrate outlasts the tools.
 
 I'm settling on placing this as its own section in Chapter 1, right after the RAG progression, framed as "The Graph as Durable Infrastructure." It cleanly separates the reasoning layer from the extraction technology and establishes why the graph matters independent of LLMs.
 
-The new structure Will sketched is much tighter—just four core chapters covering motivation, formal definition, schema language, and Python bindings, which is cleaner than the earlier multi-part outline.
+The new structure Will sketched is much tighter--just four core chapters covering motivation, formal definition, schema language, and Python bindings, which is cleaner than the earlier multi-part outline.
 
 For chapters 5 onward, I'll keep things detailed through the medical literature example, then intentionally lighter and more exploratory for the reasoning, traversal, and identity chapters since Will acknowledged that territory gets murkier. Let me map out the full arc now, starting with the manifesto and working through the core chapters.
 
-The opening chapters need to establish why typed graphs matter—grounding it in high-stakes domains like law and medicine where retrieval errors have real consequences. I'm contrasting the limitations of cosine similarity search with what graph structure enables, then positioning typed graphs as the missing piece that adds provenance and error-checking. A key insight is that the graph itself is durable infrastructure independent of LLM capabilities—pure graph traversal on well-organized data is useful on its own, with the LLM handling extraction and language generation on top. I'm also drawing parallels to how type systems work in programming and physics, where category errors get caught by structure rather than discovered at runtime. a graph: a triple that violates a predicate's type signature
+The opening chapters need to establish why typed graphs matter--grounding it in high-stakes domains like law and medicine where retrieval errors have real consequences. I'm contrasting the limitations of cosine similarity search with what graph structure enables, then positioning typed graphs as the missing piece that adds provenance and error-checking. A key insight is that the graph itself is durable infrastructure independent of LLM capabilities--pure graph traversal on well-organized data is useful on its own, with the LLM handling extraction and language generation on top. I'm also drawing parallels to how type systems work in programming and physics, where category errors get caught by structure rather than discovered at runtime. a graph: a triple that violates a predicate's type signature
 - "City treats Doctor" vs "Aspirin treats Headache"
 - Predicates as two-argument functions: `treats(subject: Drug, object: Disease)`
 
@@ -1157,10 +1157,10 @@ The opening chapters need to establish why typed graphs matter—grounding it in
 - Predicate constraints become PredicateConstraint objects, and I'm using frozen Pydantic models to enforce immutability as a core design principle
 - The Python code directly mirrors the schema document, and I'll validate a few triples against it to show it working
 
-**Chapter 5: Medical Literature — A Worked Domain**
+**Chapter 5: Medical Literature -- A Worked Domain**
 - Medicine is the second domain because it has high stakes, established ontologies like UMLS and MeSH, and differs meaningfully from Holmes
 - The medlit schema defines entities like Disease and Drug, predicates like Treats and Causes, and treats evidence and provenance as first-class fields on edges
-- I'm comparing what varies between Holmes and medlit—the entity and predicate vocabularies—against what stays constant across domains
+- I'm comparing what varies between Holmes and medlit--the entity and predicate vocabularies--against what stays constant across domains
 
 **Chapter 6+: Identity and Canonicalization**
 - Moving into how canonical IDs work as strings versus things, and sketching an identity server that can resolve, promote, and merge identities across sources
@@ -1170,13 +1170,13 @@ The opening chapters need to establish why typed graphs matter—grounding it in
 **Provenance, Reasoning, and Trust**
 - Every triple traces back to its source, and the schema enforces provenance completeness while confidence gets computed from evidence rather than assigned
 - BFS-QL handles multi-hop reasoning and hypothesis generation across the graph
-- The schema can't guarantee factual correctness, and at scale bias gets encoded into the structure—so the builder carries responsibility for what the system can and cannot do
+- The schema can't guarantee factual correctness, and at scale bias gets encoded into the structure--so the builder carries responsibility for what the system can and cannot do
 
 I think this outline is solid. Will asked for a bulleted format, so I should keep it structured this way.
 
 The key improvements I'm tracking: the intellectual history of type systems has a proper place, the "no LLMs required" concept gets its own named section in Chapter 1, the progression from formal definition through schema language to Python is explicit, medical literature becomes Chapter 5 as a second worked example, and the foreword/manifesto carries over from the earlier version.
 
-For that "no LLMs required" section, I'm considering names like "The Graph as Durable Infrastructure" or "Reasoning That Outlasts the Technology" or "The Graph Stands Alone"—something that captures how the core idea works independently of whatever AI technology surrounds it. The key insight is that the graph itself is the durable thing.
+For that "no LLMs required" section, I'm considering names like "The Graph as Durable Infrastructure" or "Reasoning That Outlasts the Technology" or "The Graph Stands Alone"--something that captures how the core idea works independently of whatever AI technology surrounds it. The key insight is that the graph itself is the durable thing.
 ````
 
 </details>
@@ -1208,7 +1208,7 @@ For that "no LLMs required" section, I'm considering names like "The Graph as Du
 - The typed graph: guardrails built into the structure itself
 
 **The Reasoning Layer Is Not the Extraction Layer**
-- The typed graph doesn't require an LLM to operate — only to build
+- The typed graph doesn't require an LLM to operate -- only to build
 - BFS on well-organized typed data is intrinsically useful regardless of how the data got there
 - As extraction technology evolves (and it will), the graph remains the stable substrate
 - The Raspberry Pi demo: pure BFS, no cloud, no model, solves a Sherlock mystery
@@ -1220,16 +1220,16 @@ For that "no LLMs required" section, I'm considering names like "The Graph as Du
 - Type systems in programming: the compiler catches category errors before runtime
 - What a category error looks like in a graph: a triple that violates a predicate's type signature
 - *"City treats Doctor"* is a category error; *"Aspirin treats Headache"* is not
-- Predicates as two-argument functions: `treats(subject: Drug, object: Disease)` — same idea as a function signature
+- Predicates as two-argument functions: `treats(subject: Drug, object: Disease)` -- same idea as a function signature
 
 **A Brief Intellectual History of Type Systems**
 - Origins in mathematical logic: Russell's paradox, type theory as a remedy
 - Church's lambda calculus; the Curry-Howard correspondence (programs are proofs)
-- Types migrate into languages: Algol, Pascal, ML — the compiler as enforcer
+- Types migrate into languages: Algol, Pascal, ML -- the compiler as enforcer
 - Algebraic types in Haskell and OCaml: making illegal states unrepresentable
 - Rust: ownership types encode resource safety at compile time
 - The general arc: from runtime crashes to compile-time guarantees
-- Mathematical arrays: dimensions in R, dtypes in NumPy — types on data, not just code
+- Mathematical arrays: dimensions in R, dtypes in NumPy -- types on data, not just code
 - The through-line: a type system is a formal bet that certain errors won't occur
 
 **An Informal Definition of the Typed Graph**
@@ -1244,8 +1244,8 @@ For that "no LLMs required" section, I'm considering names like "The Graph as Du
 ### Chapter 2: The Formal Definition
 
 - Why formalism? Math is the most precise language for specifying what a typed graph is
-- Acknowledging that programmers find math off-putting — and why the rigor is worth it anyway
-- The 7-tuple: $(T_V, T_E, \Phi, V, E, \tau_V, \tau_E)$ — each component named and motivated
+- Acknowledging that programmers find math off-putting -- and why the rigor is worth it anyway
+- The 7-tuple: $(T_V, T_E, \Phi, V, E, \tau_V, \tau_E)$ -- each component named and motivated
 - A worked example: a small Holmes graph verified against the definition
 - One valid triple and one invalid triple shown as instances
 
@@ -1257,9 +1257,9 @@ For that "no LLMs required" section, I'm considering names like "The Graph as Du
 - The same schema document should generate Python classes, Rust enums, TypeScript interfaces, MCP responses
 - Introducing the schema document: YAML as the notation
 - The Holmes schema written out in full
-    - `node_types` — the entity type vocabulary
-    - `edge_types` — the predicate vocabulary, each with a type signature
-    - `trait_groups` — temporal, epistemic, provenance properties
+    - `node_types` -- the entity type vocabulary
+    - `edge_types` -- the predicate vocabulary, each with a type signature
+    - `trait_groups` -- temporal, epistemic, provenance properties
 - Walking through each section as a direct instance of the 7-tuple components
 - Valid and invalid triples demonstrated against the schema
 - What the schema enforces vs. what it deliberately leaves open (factual correctness is not its job)
@@ -1275,30 +1275,30 @@ For that "no LLMs required" section, I'm considering names like "The Graph as Du
 - `DomainSchema`: the abstract class that a domain implements
 - `PredicateConstraint`: the Python representation of a predicate's type signature
 - Why frozen Pydantic? Immutability as a structural principle, not a style preference
-- The code visibly derived from the schema document — nothing appears from nowhere
+- The code visibly derived from the schema document -- nothing appears from nowhere
 - Running the Holmes schema against valid and invalid triples
 
 ---
 
-### Chapter 5: Medical Literature — A Second Domain
+### Chapter 5: Medical Literature -- A Second Domain
 
 - Why medicine as the second domain: high stakes, well-established ontologies, structurally different from Holmes
 - UMLS, MeSH, RxNorm, HGNC, UniProt: authoritative ontologies as canonical ID sources
 - The medlit schema: entity types, predicate vocabulary, predicate constraints
-- Evidence and provenance as first-class fields on edges — required by the domain, not optional metadata
+- Evidence and provenance as first-class fields on edges -- required by the domain, not optional metadata
 - Comparing Holmes and medlit: what the schema language handles uniformly, what varies by domain
 - The schema language earns its generality here
 
 ---
 
-### Chapter 6+: *(rough — fill in later)*
+### Chapter 6+: *(rough -- fill in later)*
 
 **Canonical Identity**
 - Strings vs. things; the deduplication problem
 - The identity server: resolve, promote, merge
 - Provisional entities: valid graph citizens while unresolved
 - Entity lifecycle: provisional → canonical → merged (one-way transitions)
-- Lookup chain: exact match, fuzzy, embedding similarity — ordered by cost
+- Lookup chain: exact match, fuzzy, embedding similarity -- ordered by cost
 
 **Provenance**
 - Every triple sourced to a passage

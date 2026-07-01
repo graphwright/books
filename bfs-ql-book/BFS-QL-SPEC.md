@@ -35,7 +35,7 @@ to orient itself to this particular graph.
 | Field | Description |
 |-------|-------------|
 | `graph_description` | Human-readable summary of what this graph contains. |
-| `comprehensive` | Boolean. `true` means `entity_types` and `predicates` are complete and exhaustive. `false` means the graph is too large or open-world to enumerate fully — treat the lists as a sample only. |
+| `comprehensive` | Boolean. `true` means `entity_types` and `predicates` are complete and exhaustive. `false` means the graph is too large or open-world to enumerate fully -- treat the lists as a sample only. |
 | `entity_types` | List of entity type strings valid for use in `bfs_query` `node_types`. May be empty if the backend cannot enumerate them. |
 | `predicates` | List of predicate strings valid for use in `bfs_query` `predicates`. May be empty if the backend cannot enumerate them. |
 | `next_steps` | Backend-authored natural language instructions for how an LLM should orient itself to this graph. Varies by graph size and nature. Always follow these instructions in preference to any generic default workflow. |
@@ -71,7 +71,7 @@ Always call this before `bfs_query` if you do not already have a canonical ID.
 If the graph uses vector similarity for search, results are ranked by semantic
 closeness to the query string. If it uses a full-text index, results are ranked
 by text match score. Either way, inspect the results before choosing a seed ID
-— common names are often ambiguous.
+-- common names are often ambiguous.
 
 ---
 
@@ -105,7 +105,7 @@ topology.
 }
 ```
 
-**Returns:** `BfsResult` — see Response Format below. Always includes a
+**Returns:** `BfsResult` -- see Response Format below. Always includes a
 `schema_summary` field summarising the entity types and predicates actually
 found in this subgraph, regardless of filters applied.
 
@@ -175,7 +175,7 @@ followed by selective `describe_entity` calls on nodes of interest.
 ```
 
 `schema_summary` reflects what was actually present in this subgraph, not the
-full graph schema. It is always populated regardless of filters — even a
+full graph schema. It is always populated regardless of filters -- even a
 `topology_only` query includes it. For open-world backends (e.g. a SPARQL
 endpoint) where `describe_schema` returns `comprehensive: false`, this is the
 primary mechanism by which the LLM discovers valid `node_types` and `predicates`
@@ -252,7 +252,7 @@ An edge that does not match `predicates` appears with topology only:
 
 **Topology is always complete.** Filters control the detail level of nodes and
 edges, not which ones appear. A stub node is not a missing node. Omitting
-non-matching items entirely would produce a misleading picture of the graph —
+non-matching items entirely would produce a misleading picture of the graph --
 the LLM would miss connections it didn't know to ask about.
 
 **Stubs enable targeted follow-up.** When a stub appears in a result, the LLM
@@ -296,7 +296,7 @@ take precedence.
 
 1. Call `describe_schema()` to learn entity types and predicates.
 2. Call `search_entities(name)` to resolve names to canonical IDs. Inspect
-   results carefully — common names are often ambiguous.
+   results carefully -- common names are often ambiguous.
 3. Call `bfs_query(seeds, max_hops, node_types, predicates)` using the
    canonical IDs from step 2. Start with `max_hops: 1` and expand if needed.
 4. Call `describe_entity(id)` on any stub node that warrants closer inspection.
@@ -308,7 +308,7 @@ take precedence.
    complete.
 2. Call `search_entities(name)` to find a canonical ID for your starting point.
 3. Call `bfs_query` with `max_hops: 1` and no filters (or `topology_only: true`
-   for very large graphs). Read the `schema_summary` in the result — this is
+   for very large graphs). Read the `schema_summary` in the result -- this is
    your working vocabulary of types and predicates for this neighborhood.
 4. Use the types and predicates from `schema_summary` to issue focused follow-up
    queries with `node_types` and `predicates` filters.
@@ -367,8 +367,8 @@ frontier, provenance-tracked relationships). The LLM can traverse both graphs
 in the same conversation, using each for what it does best.
 
 **Identity bridging.** When an entity in one graph shares a canonical ID with
-an entity in another — for example, both graphs use MeSH terms for diseases or
-HGNC symbols for genes — the LLM can bridge across them naturally: resolve a
+an entity in another -- for example, both graphs use MeSH terms for diseases or
+HGNC symbols for genes -- the LLM can bridge across them naturally: resolve a
 name in one graph, use the canonical ID to look up the same entity in the
 other. No special protocol support is required; shared canonical IDs are the
 bridge.
@@ -401,14 +401,14 @@ protocol users.
 
 Backends should be treated as read-only and static for caching purposes. The
 BFS-QL server maintains an LRU cache keyed on `(backend_id, method, args)` at
-the `GraphDbInterface` primitive level — not at the `bfs_query` level. This
+the `GraphDbInterface` primitive level -- not at the `bfs_query` level. This
 means a repeated `edges_from` or `metadata_for_node` call within any BFS
 traversal returns the cached result immediately with no round-trip to the
-underlying store. All BFS-QL intelligence — traversal, stub/full filtering,
-multi-seed union — benefits automatically from primitive-level caching.
+underlying store. All BFS-QL intelligence -- traversal, stub/full filtering,
+multi-seed union -- benefits automatically from primitive-level caching.
 
 Practical benefits: latency drops significantly for traversals that revisit
-nodes (common in multi-hop BFS), and load on upstream endpoints is reduced —
+nodes (common in multi-hop BFS), and load on upstream endpoints is reduced --
 important for public SPARQL endpoints that rate-limit automated traffic.
 
 `entity_types()` and `predicates()` results should also be cached; these are

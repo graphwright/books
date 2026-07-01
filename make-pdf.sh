@@ -27,8 +27,13 @@ for ARG in "$@"; do
     fi
 
     MDTMP=$(mktemp /tmp/pandoc-input.XXXXXX.md)
-    # Strip remote-image lines (e.g. GitHub badges) that require svg.sty
-    sed '/^!\[.*\](https\{0,1\}:\/\//d' "${NAME}.md" > "$MDTMP"
+    # Strip remote-image lines (e.g. GitHub badges) that require svg.sty.
+    # Also collapse GitHub-safe "\\_" (GFM's math renderer strips one level
+    # of backslash-escaping, so literal underscores need doubling there) down
+    # to the single "\_" that raw LaTeX/xelatex expects.
+    sed -e '/^!\[.*\](https\{0,1\}:\/\//d' \
+        -e 's/\\\\_/\\_/g' \
+        "${NAME}.md" > "$MDTMP"
 
     pandoc "$MDTMP" \
         -o "${NAME}.pdf" \

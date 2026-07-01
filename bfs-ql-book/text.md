@@ -793,8 +793,8 @@ a name to a canonical ID. The entire interface is built around them.
 
 A canonical ID is not merely a unique key. When a graph assigns a MeSH term
 to a disease entity, it is connecting that entity to the accumulated judgment
-of the biomedical community — its definition, its place in the taxonomy, its
-known synonyms — built and maintained over decades. Each identifier is a
+of the biomedical community -- its definition, its place in the taxonomy, its
+known synonyms -- built and maintained over decades. Each identifier is a
 pointer into that structure: a *located* fact rather than a merely named one.
 A graph node labeled "diabetes" is a string. A graph node identified as
 MeSH:D003924 is placed in the edifice of human knowledge as the biomedical
@@ -803,8 +803,8 @@ community understands it.
 This is why BFS-QL is built around canonical IDs: that epistemic
 infrastructure is what makes the interface worth building, and what makes
 graphs composable across sources (developed in Part IV). The full argument
-— authorities, the epistemic commons, identity resolution, and what you
-inherit when you anchor — is in the companion volume *The Identity Server:
+-- authorities, the epistemic commons, identity resolution, and what you
+inherit when you anchor -- is in the companion volume *The Identity Server:
 Canonical Identity for Knowledge Graphs*.
 
 ### A Worked Example: Desmopressin in the Medlit Graph\index{worked example}\index{desmopressin}
@@ -1867,7 +1867,7 @@ async def _search_by_vector(
 
 The `<=>` operator is pgvector's cosine distance operator. The query embeds
 the search string and finds the nearest entity embeddings. Embedding model
-consistency — using the same model at ingest time and query time — is
+consistency -- using the same model at ingest time and query time -- is
 critical; mismatched models produce meaningless distances. This is guaranteed
 automatically when the identity server owns all embeddings: it uses the same
 model for both, and the query layer never needs to know which one.
@@ -2362,7 +2362,7 @@ LLM graph interface against any data store you can navigate.
 
 Every knowledge graph that uses canonical IDs correctly is automatically
 composable with every other one that does the same. This is an emergent
-property of anchoring to shared authorities — nobody designed MeSH, HGNC,
+property of anchoring to shared authorities -- nobody designed MeSH, HGNC,
 RxNorm, and UniProt as an LLM interoperability layer, but that is what they
 have quietly become.
 

@@ -11,22 +11,22 @@ schema definitions. Suitable for inclusion in a CLAUDE.md file.
 
 A typed graph G is a 7-tuple $(T_V,\ T_E,\ \Phi,\ V,\ E,\ \tau_V,\ \tau_E)$ where:
 
-### Schema layer (types) — fixed at graph-design time
+### Schema layer (types) -- fixed at graph-design time
 
-- $T_V$ — finite set of **entity types**
-- $T_E$ — finite set of **predicate types**
-- $\Phi: T_V \cup T_E \to \text{FieldSchema}$ — assigns a POJO field schema to each type
+- $T_V$ -- finite set of **entity types**
+- $T_E$ -- finite set of **predicate types**
+- $\Phi: T_V \cup T_E \to \text{FieldSchema}$ -- assigns a POJO field schema to each type
 - For each $p \in T_E$:
-  - $\text{dom}(p) \subseteq T_V$ — permitted subject entity types
-  - $\text{ran}(p) \subseteq T_V$ — permitted object entity types
-  - $\text{Tr}(p) \subseteq \text{Trait}$ — finite set of semantic traits
+  - $\text{dom}(p) \subseteq T_V$ -- permitted subject entity types
+  - $\text{ran}(p) \subseteq T_V$ -- permitted object entity types
+  - $\text{Tr}(p) \subseteq \text{Trait}$ -- finite set of semantic traits
 
-### Instance layer — populated at ingestion or reasoning time
+### Instance layer -- populated at ingestion or reasoning time
 
-- $V$ — set of **entity instances**
-- $E \subseteq V \times T_E \times V$ — set of directed, typed **edge instances** (triples)
-- $\tau_V: V \to T_V$ — type assignment for entities
-- $\tau_E: E \to T_E$ — induced by the middle element of each edge triple
+- $V$ -- set of **entity instances**
+- $E \subseteq V \times T_E \times V$ -- set of directed, typed **edge instances** (triples)
+- $\tau_V: V \to T_V$ -- type assignment for entities
+- $\tau_E: E \to T_E$ -- induced by the middle element of each edge triple
 
 ### Validity constraints
 
@@ -56,8 +56,8 @@ Use these terms consistently throughout the book. Do not treat them as synonyms.
 | **Entity instance** | A member of $V$. A concrete node in the graph with a type in $T_V$ and data fields. Example: a specific `Person` node for Sherlock Holmes. |
 | **Edge instance** | A member of $E$. A concrete directed triple $(v_1, p, v_2)$ with a type in $T_E$ and data fields. The thing that carries metadata. |
 | **Field schema** | The POJO-like declaration of named fields and their types for a given entity type or predicate type. Defined by $\Phi$. Enforced by Pydantic. |
-| **Domain** | $\text{dom}(p)$ — the set of entity types permitted in the subject role for predicate $p$. |
-| **Range** | $\text{ran}(p)$ — the set of entity types permitted in the object role for predicate $p$. |
+| **Domain** | $\text{dom}(p)$ -- the set of entity types permitted in the subject role for predicate $p$. |
+| **Range** | $\text{ran}(p)$ -- the set of entity types permitted in the object role for predicate $p$. |
 | **Trait** | A declarative semantic property of a predicate type. Member of $\text{Tr}(p)$. Belongs to the schema, not to any edge instance. |
 | **Schema** | The tuple $(T_V,\ T_E,\ \Phi)$ together with domain, range, and trait declarations. Fixed at graph-design time. |
 | **Instance graph** | The tuple $(V,\ E,\ \tau_V,\ \tau_E)$. Populated at ingestion or reasoning time. |
@@ -65,10 +65,10 @@ Use these terms consistently throughout the book. Do not treat them as synonyms.
 
 ### Terms to avoid or use carefully
 
-- **Relationship** — always use this to mean edge instance, never a predicate type.
-- **Node** — informal synonym for entity instance. Acceptable in casual prose but not in definitions.
-- **Property** — overloaded; could mean a field on an instance or a trait on a predicate type. Be explicit.
-- **Axiom** — not used in this model. The formal-logic connotation is misleading. Use **trait** instead.
+- **Relationship** -- always use this to mean edge instance, never a predicate type.
+- **Node** -- informal synonym for entity instance. Acceptable in casual prose but not in definitions.
+- **Property** -- overloaded; could mean a field on an instance or a trait on a predicate type. Be explicit.
+- **Axiom** -- not used in this model. The formal-logic connotation is misleading. Use **trait** instead.
 
 ---
 
@@ -80,10 +80,10 @@ code examples, schema designs, or explanatory prose.
 **R1. Traits belong to predicate types, never to edge instances.**
 A predicate either has `Transitive` or it doesn't. That is part of what the
 predicate *means*. An individual edge instance cannot be transitive or
-non-transitive — that distinction belongs to its type.
+non-transitive -- that distinction belongs to its type.
 
 **R2. Metadata fields belong to edge instances, never to predicate types.**
-Provenance, confidence, timestamps, known_to, epistemic_status — all of these
+Provenance, confidence, timestamps, known_to, epistemic_status -- all of these
 are facts about a particular assertion. They live on the edge instance. The
 predicate type defines which fields are permitted (via $\Phi$), but carries no
 values itself.
@@ -131,7 +131,7 @@ class BaseTypedRelationship(BaseModel):
     subject_id: str
     object_id: str
 
-    # Subclasses declare these as ClassVar — they are schema, not instance data
+    # Subclasses declare these as ClassVar -- they are schema, not instance data
     allowed_subject_prefixes: ClassVar[frozenset[str]] = frozenset()
     allowed_object_prefixes: ClassVar[frozenset[str]] = frozenset()
 
@@ -206,7 +206,7 @@ description logic, that is scope creep.
 The worked example for Book 3 uses the Sherlock Holmes canon as domain.
 
 - **Ontology authority**: Baker Street Wiki (https://bakerstreet.fandom.com)
-- **Schema construction method**: inductive — built by annotating stories, not
+- **Schema construction method**: inductive -- built by annotating stories, not
   pre-designed
 - **Primary stories**: "A Scandal in Bohemia", "The Speckled Band"
 - **Provisional entity types**: `Person`, `Location`, `Object`, `Document`,
